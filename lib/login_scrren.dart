@@ -15,6 +15,9 @@ class SkyDevsLoginScreen extends StatefulWidget {
 }
 
 class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
+  // Login Type Toggle
+  bool _isClientLogin = false;
+
   // API Data
   List<dynamic> _companies = [];
   List<dynamic> _allRoles = [];
@@ -26,6 +29,7 @@ class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
 
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController(); // Added for Client
 
   bool _obscurePassword = true;
   bool _isLoading = true;
@@ -37,33 +41,57 @@ class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
     _fetchData();
   }
 
+  dynamic _safeDecode(http.Response response, String endpointName) {
+    if (response.statusCode != 200) {
+      throw Exception("Server Error ${response.statusCode} on $endpointName");
+    }
+    try {
+      return json.decode(response.body);
+    } on FormatException catch (e) {
+      debugPrint("--- FORMAT EXCEPTION ON $endpointName ---");
+      debugPrint("Raw Server Response: ${response.body}");
+      debugPrint("-----------------------------------------");
+      throw Exception("Invalid data received from server. Check console for details.");
+    }
+  }
+
   Future<void> _fetchData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
+
     try {
       final responses = await Future.wait([
-        http.get(Uri.parse('https://skydevs.skynetproduct.com/skydevs_API.php?table=company_info')),
-        http.get(Uri.parse('https://skydevs.skynetproduct.com/skydevs_API.php?table=admin_roles')),
-        http.get(Uri.parse('https://skydevs.skynetproduct.com/skydevs_API.php?table=users1')),
+        http.get(Uri.parse('https://auxoradevs.auxorasystems.com/skydevs_API.php?table=company_info')),
+        http.get(Uri.parse('https://auxoradevs.auxorasystems.com/skydevs_API.php?table=admin_roles')),
+        http.get(Uri.parse('https://auxoradevs.auxorasystems.com/skydevs_API.php?table=users1')),
       ]);
 
       if (mounted) {
         setState(() {
-          final companyData = json.decode(responses[0].body);
-          if (companyData['status'] == "success") _companies = companyData['data'] ?? [];
+          try {
+            final companyData = _safeDecode(responses[0], 'company_info');
+            if (companyData['status'] == "success") _companies = companyData['data'] ?? [];
 
-          final roleData = json.decode(responses[1].body);
-          if (roleData['status'] == "success") _allRoles = roleData['data'] ?? [];
+            final roleData = _safeDecode(responses[1], 'admin_roles');
+            if (roleData['status'] == "success") _allRoles = roleData['data'] ?? [];
 
-          final userData = json.decode(responses[2].body);
-          if (userData['status'] == "success") _allUsers = userData['data'] ?? [];
+            final userData = _safeDecode(responses[2], 'users1');
+            if (userData['status'] == "success") _allUsers = userData['data'] ?? [];
 
-          _isLoading = false;
+            _isLoading = false;
+          } catch (decodeError) {
+            _errorMessage = decodeError.toString().replaceAll('Exception: ', '');
+            _isLoading = false;
+          }
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = "Connection error: $e";
+          _errorMessage = "Connection failed. Please check your internet or server.";
+          debugPrint("Network Error: $e");
           _isLoading = false;
         });
       }
@@ -78,7 +106,80 @@ class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
     });
   }
 
-  void _handleLogin() async {
+  // --- Handle Client Login ---
+  Future<void> _handleClientLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showSnackbar("Email and password cannot be blank.", isError: true);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final res = await http.get(Uri.parse('https://auxoracrm.auxorasystems.com/client_users_api.php?action=all'));
+      var data = json.decode(res.body);
+
+      List<dynamic> clientUsers = [];
+      if (data is List) {
+        clientUsers = data;
+      } else if (data['data'] != null) {
+        clientUsers = data['data'];
+      }
+
+      final matchedClient = clientUsers.firstWhere(
+            (user) => user['email'] == email,
+        orElse: () => null,
+      );
+
+      if (matchedClient != null) {
+        final String? hashedPassword = matchedClient['password'];
+        bool isPasswordCorrect = false;
+
+        if (hashedPassword != null && hashedPassword.isNotEmpty) {
+          try {
+            String compatibleHash = hashedPassword;
+            // Translate $2y$ to $2a$ for dart bcrypt compatibility
+            if (compatibleHash.startsWith('\$2y\$')) {
+              compatibleHash = compatibleHash.replaceFirst('\$2y\$', '\$2a\$');
+            }
+            isPasswordCorrect = BCrypt.checkpw(password, compatibleHash);
+          } catch (e) {
+            debugPrint("Bcrypt comparison error: $e");
+            isPasswordCorrect = (password == hashedPassword);
+          }
+        }
+
+        if (isPasswordCorrect) {
+          _showSnackbar("Client Authenticated. Initializing workspace...", isError: false);
+
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('isLoggedIn', true);
+          await prefs.setBool('isClient', true);
+          await prefs.setString('clientId', matchedClient['user_id'].toString());
+          await prefs.setString('username', matchedClient['username'] ?? 'Client');
+
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const SkyDevsHomeScreen()),
+          );
+        } else {
+          _showSnackbar("Access Denied: Invalid password.", isError: true);
+        }
+      } else {
+        _showSnackbar("Access Denied: Client record not found.", isError: true);
+      }
+    } catch (e) {
+      _showSnackbar("System Error: Failed to validate client.", isError: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // --- Handle Admin Login ---
+  void _handleAdminLogin() async {
     if (_selectedCompanyId == null || _selectedRoleId == null) {
       _showSnackbar("Select organization and role.", isError: true);
       return;
@@ -106,22 +207,25 @@ class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
 
       if (hashedPassword != null && hashedPassword.isNotEmpty) {
         try {
-          isPasswordCorrect = BCrypt.checkpw(password, hashedPassword);
+          String compatibleHash = hashedPassword;
+          if (compatibleHash.startsWith('\$2y\$')) {
+            compatibleHash = compatibleHash.replaceFirst('\$2y\$', '\$2a\$');
+          }
+          isPasswordCorrect = BCrypt.checkpw(password, compatibleHash);
         } catch (e) {
-          print("Bcrypt error: $e");
+          debugPrint("Bcrypt error: $e");
+          isPasswordCorrect = (password == hashedPassword);
         }
       } else {
-        isPasswordCorrect = true;
+        isPasswordCorrect = true; // Fallback if no hash exists
       }
 
       if (isPasswordCorrect) {
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isLoggedIn', true);
+        await prefs.setBool('isClient', false);
 
-        // Save the company_id for filtering clients
         await prefs.setString('company_id', _selectedCompanyId.toString());
-
-        // Also save other user info if needed
         await prefs.setString('user_id', matchedUser['id'].toString());
         await prefs.setString('username', username);
         await prefs.setString('role_id', _selectedRoleId.toString());
@@ -138,6 +242,7 @@ class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
       _showSnackbar("Access Denied: Developer ID not found.", isError: true);
     }
   }
+
   void _showSnackbar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -184,7 +289,7 @@ class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
                           ),
                           Text(
                             "by Skynet IT Solutions // v4.2.0",
-                            style: TextStyle(fontSize: 12, color: AppColors.textMuted.withOpacity(0.8)),
+                            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
                           ),
                         ],
                       )
@@ -196,7 +301,7 @@ class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppColors.badgeBg,
+                      color: AppColors.badgeBg ?? AppColors.accentCyan.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(30),
                       border: Border.all(color: AppColors.accentCyan.withOpacity(0.3)),
                     ),
@@ -232,51 +337,79 @@ class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
 
                   // --- Title ---
                   const Text(
-                    "Admin sign in",
+                    "System Access",
                     style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.textWhite, fontFamily: 'sans-serif'),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    "Enter credentials to access the developer console",
+                    "Enter credentials to access the console",
                     style: TextStyle(fontSize: 15, color: AppColors.textMuted, fontFamily: 'sans-serif'),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+
+                  // --- Toggle Button ---
+                  Container(
+                    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.borderDark)),
+                    padding: const EdgeInsets.all(4),
+                    margin: const EdgeInsets.only(bottom: 24),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _isClientLogin = false),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: !_isClientLogin ? AppColors.accentCyan.withOpacity(0.1) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(child: Text("Developer / Admin", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: !_isClientLogin ? AppColors.accentCyan : AppColors.textMuted))),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(() => _isClientLogin = true),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: _isClientLogin ? AppColors.accentCyan.withOpacity(0.1) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(child: Text("Client Portal", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _isClientLogin ? AppColors.accentCyan : AppColors.textMuted))),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
                   if (_errorMessage.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 20),
-                      child: Text(_errorMessage, style: const TextStyle(color: Colors.redAccent)),
+                      child: Text(_errorMessage, style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
                     ),
 
-                  // --- Form Fields ---
-                  _buildLabel("Organization"),
-                  _buildDropdown(
-                    hint: "Select organization",
-                    icon: Icons.business_rounded,
-                    value: _selectedCompanyId,
-                    items: _companies,
-                    itemLabelKey: 'company_name',
-                    onChanged: (val) => _onCompanySelected(val as String?),
-                  ),
-                  const SizedBox(height: 24),
+                  // --- Admin Fields ---
+                  if (!_isClientLogin) ...[
+                    _buildLabel("Organization"),
+                    _buildDropdown(hint: "Select organization", icon: Icons.business_rounded, value: _selectedCompanyId, items: _companies, itemLabelKey: 'company_name', onChanged: (val) => _onCompanySelected(val as String?)),
+                    const SizedBox(height: 24),
 
-                  _buildLabel("Access Role"),
-                  _buildDropdown(
-                    hint: "Select role",
-                    icon: Icons.admin_panel_settings_rounded,
-                    value: _selectedRoleId,
-                    items: _filteredRoles,
-                    itemLabelKey: 'role',
-                    onChanged: _selectedCompanyId == null ? null : (val) => setState(() => _selectedRoleId = val as String?),
-                  ),
-                  const SizedBox(height: 24),
+                    _buildLabel("Access Role"),
+                    _buildDropdown(hint: "Select role", icon: Icons.admin_panel_settings_rounded, value: _selectedRoleId, items: _filteredRoles, itemLabelKey: 'role', onChanged: _selectedCompanyId == null ? null : (val) => setState(() => _selectedRoleId = val as String?)),
+                    const SizedBox(height: 24),
 
-                  _buildLabel("Developer ID / Username"),
-                  _buildTextField(
-                    hint: "e.g., dev.lead",
-                    icon: Icons.person_rounded,
-                    controller: _usernameController,
-                  ),
+                    _buildLabel("Developer ID / Username"),
+                    _buildTextField(hint: "e.g., dev.lead", icon: Icons.person_rounded, controller: _usernameController),
+                  ],
+
+                  // --- Client Fields ---
+                  if (_isClientLogin) ...[
+                    _buildLabel("Registered Email"),
+                    _buildTextField(hint: "client@domain.com", icon: Icons.email_rounded, controller: _emailController),
+                  ],
+
                   const SizedBox(height: 24),
 
                   _buildLabel("SSH Key / Password"),
@@ -293,7 +426,7 @@ class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
                     width: double.infinity,
                     height: 54,
                     child: ElevatedButton(
-                      onPressed: _handleLogin,
+                      onPressed: _isClientLogin ? _handleClientLogin : _handleAdminLogin,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.accentCyan,
                         foregroundColor: AppColors.background,
@@ -317,10 +450,7 @@ class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0, left: 4.0),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textWhite, fontFamily: 'monospace'),
-      ),
+      child: Text(text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textWhite, fontFamily: 'monospace')),
     );
   }
 
@@ -331,12 +461,7 @@ class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
       decoration: _inputDecoration(hint, icon),
       icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
       isExpanded: true,
-      items: items.map<DropdownMenuItem<String>>((item) {
-        return DropdownMenuItem<String>(
-          value: item['id'].toString(),
-          child: Text(item[itemLabelKey] ?? '', style: const TextStyle(color: AppColors.textWhite, fontSize: 15, fontFamily: 'sans-serif')),
-        );
-      }).toList(),
+      items: items.map<DropdownMenuItem<String>>((item) => DropdownMenuItem<String>(value: item['id'].toString(), child: Text(item[itemLabelKey] ?? '', style: const TextStyle(color: AppColors.textWhite, fontSize: 15, fontFamily: 'sans-serif')))).toList(),
       onChanged: onChanged,
     );
   }
@@ -348,10 +473,7 @@ class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
       style: const TextStyle(color: AppColors.textWhite, fontSize: 15, fontFamily: 'sans-serif'),
       decoration: _inputDecoration(hint, icon).copyWith(
         suffixIcon: isPassword
-            ? IconButton(
-          icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: AppColors.textMuted, size: 20),
-          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-        )
+            ? IconButton(icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: AppColors.textMuted, size: 20), onPressed: () => setState(() => _obscurePassword = !_obscurePassword))
             : null,
       ),
     );
@@ -363,14 +485,8 @@ class _SkyDevsLoginScreenState extends State<SkyDevsLoginScreen> {
       hintStyle: TextStyle(color: AppColors.textMuted.withOpacity(0.5), fontSize: 15, fontFamily: 'sans-serif'),
       prefixIcon: Icon(icon, color: AppColors.textMuted, size: 20),
       contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.borderDark, width: 1.5),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.accentCyan, width: 1.5),
-      ),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark, width: 1.5)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.accentCyan, width: 1.5)),
       filled: true,
       fillColor: AppColors.surface,
     );

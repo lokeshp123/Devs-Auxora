@@ -17,8 +17,8 @@ class _CICDPipelineScreenState extends State<CICDPipelineScreen> {
   List<dynamic> _deployments = [];
   List<dynamic> _projects = [];
 
-  final String _apiUrl = 'https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_deployments';
-  final String _projectsApiUrl = 'https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_projects';
+  final String _apiUrl = 'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_deployments';
+  final String _projectsApiUrl = 'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_projects';
 
   // Statistics
   int _totalDeployments = 0;

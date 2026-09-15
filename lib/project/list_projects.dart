@@ -17,7 +17,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
   String _errorMessage = '';
   List<dynamic> _projects = [];
 
-  final String _apiUrl = 'https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_projects';
+  final String _apiUrl = 'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_projects';
 
   @override
   void initState() {
@@ -142,10 +142,6 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
     );
   }
 
-  // ==========================================
-  // HELPER METHODS
-  // ==========================================
-
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'planning': return AppColors.warningYellow;
@@ -235,173 +231,197 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
           Color statusColor = _getStatusColor(status);
           String priorityIcon = _getPriorityIcon(priority);
 
-          return Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderDark),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProjectDetailsScreen(project: project),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Text(
+                              priorityIcon,
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                project['project_name'] ?? 'Unknown Project',
+                                style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textWhite
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: statusColor.withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          status.toUpperCase().replaceAll('_', ' '),
+                          style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, color: AppColors.textMuted),
+                        color: AppColors.surface,
+                        onSelected: (value) {
+                          if (value == 'edit') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditProjectScreen(
+                                  project: project,
+                                  onSave: (updatedData) {
+                                    _updateProject(project['id'].toString(), updatedData);
+                                  },
+                                ),
+                              ),
+                            );
+                          }
+                          if (value == 'delete') _confirmDelete(project);
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                              value: 'edit',
+                              child: Row(children: [
+                                Icon(Icons.edit_outlined, color: AppColors.textWhite, size: 18),
+                                SizedBox(width: 8),
+                                Text('Edit', style: TextStyle(color: AppColors.textWhite))
+                              ])
+                          ),
+                          const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(children: [
+                                Icon(Icons.delete_outline, color: AppColors.dangerRed, size: 18),
+                                SizedBox(width: 8),
+                                Text('Delete', style: TextStyle(color: AppColors.dangerRed))
+                              ])
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "ID: ${project['unique_project_id'] ?? 'N/A'}",
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                  ),
+                  if (project['description'] != null && project['description'].toString().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        project['description'],
+                        style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  const Divider(color: AppColors.borderDark, height: 1),
+                  const SizedBox(height: 12),
+                  // Progress Bar
+                  Row(
+                    children: [
+                      const Text("Progress:", style: TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: (double.tryParse(progress) ?? 0) / 100,
+                            backgroundColor: AppColors.borderDark,
+                            color: AppColors.accentCyan,
+                            minHeight: 6,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text("$progress%", style: const TextStyle(color: AppColors.accentCyan, fontSize: 12)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 8,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.calendar_today, size: 14, color: AppColors.textMuted),
+                          const SizedBox(width: 6),
+                          Text(
+                            "Start: ${project['start_date'] ?? 'N/A'}",
+                            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.attach_money, size: 14, color: AppColors.textMuted),
+                          const SizedBox(width: 6),
+                          Text(
+                            "₹${project['project_budget'] ?? '0'}",
+                            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.access_time, size: 14, color: AppColors.textMuted),
+                          const SizedBox(width: 6),
+                          Text(
+                            "${project['estimated_hours'] ?? '0'} hrs",
+                            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  if (project['project_manager'] != null && project['project_manager'].toString().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
                       child: Row(
                         children: [
+                          const Icon(Icons.person_rounded, size: 14, color: AppColors.textMuted),
+                          const SizedBox(width: 6),
                           Text(
-                            priorityIcon,
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              project['project_name'] ?? 'Unknown Project',
-                              style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textWhite
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            "PM: ${project['project_manager']}",
+                            style: const TextStyle(color: AppColors.textWhite, fontSize: 12),
                           ),
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: statusColor.withOpacity(0.3)),
-                      ),
-                      child: Text(
-                        status.toUpperCase().replaceAll('_', ' '),
-                        style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, color: AppColors.textMuted),
-                      color: AppColors.surface,
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                          // CHANGED: Open as full screen instead of Dialog
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => EditProjectScreen(
-                                project: project,
-                                onSave: (updatedData) {
-                                  _updateProject(project['id'].toString(), updatedData);
-                                },
-                              ),
-                            ),
-                          );
-                        }
-                        if (value == 'delete') _confirmDelete(project);
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                            value: 'edit',
-                            child: Row(children: [
-                              Icon(Icons.edit_outlined, color: AppColors.textWhite, size: 18),
-                              SizedBox(width: 8),
-                              Text('Edit', style: TextStyle(color: AppColors.textWhite))
-                            ])
-                        ),
-                        const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(children: [
-                              Icon(Icons.delete_outline, color: AppColors.dangerRed, size: 18),
-                              SizedBox(width: 8),
-                              Text('Delete', style: TextStyle(color: AppColors.dangerRed))
-                            ])
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "ID: ${project['unique_project_id'] ?? 'N/A'}",
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                ),
-                if (project['description'] != null && project['description'].toString().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      project['description'],
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                const Divider(color: AppColors.borderDark, height: 1),
-                const SizedBox(height: 12),
-                // Progress Bar
-                Row(
-                  children: [
-                    const Text("Progress:", style: TextStyle(color: AppColors.textMuted, fontSize: 10)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: double.tryParse(progress)! / 100,
-                          backgroundColor: AppColors.borderDark,
-                          color: AppColors.accentCyan,
-                          minHeight: 6,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text("$progress%", style: const TextStyle(color: AppColors.accentCyan, fontSize: 12)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today, size: 14, color: AppColors.textMuted),
-                    const SizedBox(width: 6),
-                    Text(
-                      "Start: ${project['start_date'] ?? 'N/A'}",
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                    ),
-                    const SizedBox(width: 16),
-                    const Icon(Icons.attach_money, size: 14, color: AppColors.textMuted),
-                    const SizedBox(width: 6),
-                    Text(
-                      "₹${project['project_budget'] ?? '0'}",
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                    ),
-                    const SizedBox(width: 16),
-                    const Icon(Icons.access_time, size: 14, color: AppColors.textMuted),
-                    const SizedBox(width: 6),
-                    Text(
-                      "${project['estimated_hours'] ?? '0'} hrs",
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                    ),
-                  ],
-                ),
-                if (project['project_manager'] != null && project['project_manager'].toString().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.person_rounded, size: 14, color: AppColors.textMuted),
-                        const SizedBox(width: 6),
-                        Text(
-                          "PM: ${project['project_manager']}",
-                          style: const TextStyle(color: AppColors.textWhite, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -411,7 +431,190 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
 }
 
 // ==========================================
-// EDIT PROJECT SCREEN (Changed from Dialog)
+// PROJECT DETAILS SCREEN (NEWLY ADDED)
+// ==========================================
+class ProjectDetailsScreen extends StatelessWidget {
+  final Map<String, dynamic> project;
+
+  const ProjectDetailsScreen({Key? key, required this.project}) : super(key: key);
+
+  List<dynamic> _parseJsonList(dynamic jsonInput) {
+    if (jsonInput == null) return [];
+    if (jsonInput is List) return jsonInput;
+    if (jsonInput is String && jsonInput.isNotEmpty) {
+      try {
+        var parsed = json.decode(jsonInput);
+        if (parsed is String) parsed = json.decode(parsed);
+        if (parsed is List) return parsed;
+        if (parsed is Map) return [parsed];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final teamMembers = _parseJsonList(project['team_members']);
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        elevation: 0,
+        flexibleSpace: Container(decoration: const BoxDecoration(gradient: AppColors.premiumGradient)),
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text("Project Details", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- HEADER INFO ---
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    project['project_name'] ?? 'Unknown Project',
+                    style: const TextStyle(color: AppColors.textWhite, fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "ID: ${project['unique_project_id'] ?? 'N/A'} | Code: ${project['project_code'] ?? 'N/A'}",
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 12, fontFamily: 'monospace'),
+                  ),
+                  if (project['description'] != null && project['description'].toString().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      project['description'],
+                      style: const TextStyle(color: AppColors.textWhite, fontSize: 13),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // --- BASIC INFO ---
+            _buildSection("Basic Information", [
+              _buildDetailRow("Type", project['project_type']),
+              _buildDetailRow("Methodology", project['methodology']),
+              _buildDetailRow("Priority", project['priority']),
+              _buildDetailRow("Status", project['status']),
+              _buildDetailRow("Progress", "${project['progress'] ?? '0'}%"),
+              _buildDetailRow("Start Date", project['start_date']),
+              _buildDetailRow("End Date", project['end_date']),
+            ]),
+
+            // --- TEAM ---
+            _buildSection("Team Management", [
+              _buildDetailRow("Project Manager", project['project_manager']),
+              _buildDetailRow("Tech Lead", project['tech_lead']),
+              if (teamMembers.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text("Team Members:", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                const SizedBox(height: 6),
+                ...teamMembers.map((m) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6.0),
+                  child: Text(
+                    "• ${m['name'] ?? 'Unknown'} (${m['role'] ?? 'Member'}) - ${m['allocation']}% allocation",
+                    style: const TextStyle(color: AppColors.textWhite, fontSize: 13),
+                  ),
+                )).toList(),
+              ]
+            ]),
+
+            // --- FINANCIAL ---
+            _buildSection("Financial Details", [
+              _buildDetailRow("Project Budget", project['project_budget'] != null ? "₹${project['project_budget']}" : null),
+              _buildDetailRow("Hourly Rate", project['hourly_rate'] != null ? "₹${project['hourly_rate']}" : null),
+              _buildDetailRow("Estimated Hours", project['estimated_hours'] != null ? "${project['estimated_hours']} hrs" : null),
+              _buildDetailRow("Actual Hours", project['actual_hours'] != null ? "${project['actual_hours']} hrs" : null),
+            ]),
+
+            // --- GIT INTEGRATION ---
+            _buildSection("Git Repository", [
+              _buildDetailRow("Repository URL", project['repo_url']),
+              _buildDetailRow("Default Branch", project['repo_branch']),
+            ]),
+
+            // --- DEPLOYMENT ---
+            _buildSection("Deployment Environments", [
+              _buildDetailRow("Dev URL", project['dev_url']),
+              _buildDetailRow("Staging URL", project['staging_url']),
+              _buildDetailRow("Production URL", project['production_url']),
+            ]),
+
+            // --- NOTES ---
+            if (project['notes'] != null && project['notes'].toString().isNotEmpty)
+              _buildSection("Additional Notes", [
+                Text(project['notes'], style: const TextStyle(color: AppColors.textWhite, fontSize: 13)),
+              ]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection(String title, List<Widget> children) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderDark),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: const TextStyle(color: AppColors.accentCyan, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1),
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, dynamic value) {
+    if (value == null || value.toString().isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value.toString(),
+              style: const TextStyle(color: AppColors.textWhite, fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==========================================
+// EDIT PROJECT SCREEN (Unchanged)
 // ==========================================
 
 class EditProjectScreen extends StatefulWidget {
@@ -425,7 +628,6 @@ class EditProjectScreen extends StatefulWidget {
 }
 
 class _EditProjectScreenState extends State<EditProjectScreen> with SingleTickerProviderStateMixin {
-  // --- Basic Info Controllers ---
   late TextEditingController projectNameCtrl;
   late TextEditingController projectCodeCtrl;
   late TextEditingController descriptionCtrl;
@@ -437,22 +639,18 @@ class _EditProjectScreenState extends State<EditProjectScreen> with SingleTicker
   String priority = 'Medium';
   String status = 'Planning';
 
-  // --- Team Controllers ---
   late TextEditingController projectManagerCtrl;
   late TextEditingController techLeadCtrl;
   List<Map<String, String>> teamMembers = [];
 
-  // --- Financial Controllers ---
   late TextEditingController projectBudgetCtrl;
   late TextEditingController hourlyRateCtrl;
   late TextEditingController estimatedHoursCtrl;
   late TextEditingController actualHoursCtrl;
 
-  // --- Git Integration Controllers ---
   late TextEditingController repoUrlCtrl;
   late TextEditingController defaultBranchCtrl;
 
-  // --- Deployment Controllers ---
   late TextEditingController devUrlCtrl;
   late TextEditingController stagingUrlCtrl;
   late TextEditingController productionUrlCtrl;
@@ -463,7 +661,6 @@ class _EditProjectScreenState extends State<EditProjectScreen> with SingleTicker
   String _safeStr(dynamic value, String fallback) {
     if (value == null || value.toString().isEmpty) return fallback;
     String str = value.toString();
-    // Map old values to display values
     if (str == 'fixed_price') return 'Fixed Price';
     if (str == 'time_material') return 'Time & Material';
     if (str == 'retainer') return 'Retainer';
@@ -525,7 +722,6 @@ class _EditProjectScreenState extends State<EditProjectScreen> with SingleTicker
     projectManagerCtrl = TextEditingController(text: p['project_manager'] ?? '');
     techLeadCtrl = TextEditingController(text: p['tech_lead'] ?? '');
 
-    // Parse team members JSON
     try {
       String teamMembersStr = p['team_members'] ?? '[]';
       List<dynamic> teamList = json.decode(teamMembersStr);
@@ -844,10 +1040,6 @@ class _EditProjectScreenState extends State<EditProjectScreen> with SingleTicker
       ),
     );
   }
-
-  // ==========================================
-  // HELPER WIDGETS
-  // ==========================================
 
   Widget _sectionHeader(String title, IconData icon) {
     return Row(

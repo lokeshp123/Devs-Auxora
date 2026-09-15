@@ -157,14 +157,34 @@ class _AddClientScreenState extends State<AddClientScreen>
     setState(() => _isSaving = true);
 
     try {
+      // --- CHANGED: Fetch both IDs and check login type ---
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? savedCompanyId = prefs.getString('company_id');
+      bool isClient = prefs.getBool('isClient') ?? false;
+      final String companyId = prefs.getString('company_id') ?? '';
+      final String clientIdSession = prefs.getString('clientId') ?? '';
+      final String? userId = prefs.getString('user_id');
+
+      // Validate based on user type
+      if (isClient && clientIdSession.isEmpty) {
+        _showError("Session Error: Client ID missing. Please log out and log in again.");
+        setState(() { _isSaving = false; });
+        return;
+      } else if (!isClient && companyId.isEmpty) {
+        _showError("Session Error: Company ID missing. Please log out and log in again.");
+        setState(() { _isSaving = false; });
+        return;
+      }
+
       final String uniqueClientId = _generatedClientId;
 
       // Build payload with ONLY fields that exist in the database
       final Map<String, dynamic> payload = {
-        'company_id': savedCompanyId,
-        'created_by': '1',
+        'company_id': companyId,
+
+        // --- CHANGED: Insert client_id_owner conditionally ---
+        'client_id': isClient ? clientIdSession : null,
+
+        'created_by': userId ?? '1',
         'unique_client_id': uniqueClientId,
         'company_name': companyNameCtrl.text.trim(),
         'website': websiteCtrl.text.trim(),
@@ -213,14 +233,29 @@ class _AddClientScreenState extends State<AddClientScreen>
             : '',
       };
 
+      // Clean the payload to remove any null values
+      final Map<String, dynamic> cleanedPayload = {};
+      payload.forEach((key, value) {
+        if (value != null) {
+          cleanedPayload[key] = value;
+        }
+      });
+
       final response = await http.post(
         Uri.parse(
-            'https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_clients'),
+            'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_clients'),
         headers: {"Content-Type": "application/json"},
-        body: json.encode(payload),
+        body: json.encode(cleanedPayload),
       );
 
-      final data = json.decode(response.body);
+      // Safe decoding logic to handle potential PHP warnings
+      String responseBody = response.body.trim();
+      int startIndex = responseBody.indexOf('{');
+      if (startIndex > 0) {
+        responseBody = responseBody.substring(startIndex);
+      }
+
+      final data = json.decode(responseBody);
 
       if (data['status'] == 'success') {
         if (!mounted) return;
@@ -240,7 +275,6 @@ class _AddClientScreenState extends State<AddClientScreen>
       if (mounted) setState(() => _isSaving = false);
     }
   }
-
   void _showError(String text) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

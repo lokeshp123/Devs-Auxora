@@ -4,16 +4,21 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skydevs/project/add_projects.dart';
 import 'package:skydevs/project/list_projects.dart';
+import 'package:skydevs/report_screen.dart';
 
+import 'Kanban Borad/kanban_board_screen.dart';
+import 'Time Tracking/list_time_entries.dart';
 import 'bugs/add_bugs.dart';
 import 'bugs/list_bugs.dart';
 import 'client/add_client.dart';
 import 'client/client_list.dart';
 import 'deployment/ci/cd_pipeline.dart';
+import 'deployment/start_deployment.dart';
 import 'employee/add_employee.dart';
 import 'employee/list_employee.dart';
 import 'invoice/add_invoice.dart';
 import 'invoice/list_invoice.dart';
+// ADD THIS IMPORT for Kanban Board (Adjust the path if you placed it in a specific folder)
 import 'login_scrren.dart';
 import 'theme.dart';
 
@@ -31,27 +36,57 @@ class _SkyDevsHomeScreenState extends State<SkyDevsHomeScreen> {
   List<dynamic> _sidebarSubSubmenus = [];
   bool _isSidebarLoading = true;
 
+  // Track selected bottom nav item
+  int _bottomNavIndex = 0;
+
   @override
   void initState() {
     super.initState();
     _fetchSidebarData();
   }
 
-  // ==========================================
-  // API CALLS
-  // ==========================================
   Future<void> _fetchSidebarData() async {
     try {
       final responses = await Future.wait([
-        http.get(Uri.parse('https://skydevs.skynetproduct.com/skydevs_API.php?table=sidebar_header')),
-        http.get(Uri.parse('https://skydevs.skynetproduct.com/skydevs_API.php?table=sidebar_submenu')),
-        http.get(Uri.parse('https://skydevs.skynetproduct.com/skydevs_API.php?table=sidebar_submenu_submenus')),
+        http.get(Uri.parse('https://auxoradevs.auxorasystems.com/skydevs_API.php?table=sidebar_header')),
+        http.get(Uri.parse('https://auxoradevs.auxorasystems.com/skydevs_API.php?table=sidebar_submenu')),
+        http.get(Uri.parse('https://auxoradevs.auxorasystems.com/skydevs_API.php?table=sidebar_submenu_submenus')),
       ]);
+
+      // Load session info
+      final prefs = await SharedPreferences.getInstance();
+      final bool isClient = prefs.getBool('isClient') ?? false;
+      final String clientId = prefs.getString('clientId') ?? '';
 
       if (mounted) {
         setState(() {
           final headerData = json.decode(responses[0].body);
-          if (headerData['status'] == "success") _sidebarHeaders = headerData['data'] ?? [];
+          if (headerData['status'] == "success") {
+
+            _sidebarHeaders = (headerData['data'] as List).where((header) {
+              // Ensure header status is active
+              bool isActive = header['status'].toString() == "1";
+
+              if (isClient) {
+                // Extract comma-separated IDs
+                final String headerClientIdsString = header['client_id']?.toString() ?? "";
+
+                // Split and Trim to match precisely
+                final List<String> allowedClients = headerClientIdsString
+                    .split(',')
+                    .map((id) => id.trim())
+                    .toList();
+
+                final String cleanClientId = clientId.trim();
+
+                // Show only if this specific Client ID is in the API array
+                return isActive && allowedClients.contains(cleanClientId);
+              } else {
+                // Default admin rules
+                return isActive;
+              }
+            }).toList();
+          }
 
           final submenuData = json.decode(responses[1].body);
           if (submenuData['status'] == "success") _sidebarSubmenus = submenuData['data'] ?? [];
@@ -79,9 +114,37 @@ class _SkyDevsHomeScreenState extends State<SkyDevsHomeScreen> {
     }
   }
 
-  // ==========================================
-  // UI - MAIN BUILD
-  // ==========================================
+  // --- BOTTOM NAV ROUTING LOGIC ---
+  void _onBottomNavTapped(int index) {
+    setState(() {
+      _bottomNavIndex = index;
+    });
+
+    // Small delay to allow the tab highlight animation to play smoothly before navigating
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (!mounted) return;
+
+      if (index == 1) {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const AddClientScreen()))
+            .then((_) => _resetBottomNav());
+      } else if (index == 2) {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProjectScreen()))
+            .then((_) => _resetBottomNav());
+      } else if (index == 3) {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const AddEmployeeScreen()))
+            .then((_) => _resetBottomNav());
+      }
+    });
+  }
+
+  void _resetBottomNav() {
+    if (mounted) {
+      setState(() {
+        _bottomNavIndex = 0;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -123,12 +186,85 @@ class _SkyDevsHomeScreenState extends State<SkyDevsHomeScreen> {
         ],
       ),
       body: _buildBody(),
+      bottomNavigationBar: SafeArea(child: _buildAnimatedBottomBar()),
     );
   }
 
-  // ==========================================
-  // UI - DRAWER & NAVIGATION
-  // ==========================================
+  // ==== CUSTOM ANIMATED BOTTOM NAVIGATION BAR ====
+  Widget _buildAnimatedBottomBar() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: AppColors.borderDark.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildBottomBarItem(0, "Home", Icons.dashboard_rounded, Icons.dashboard_outlined),
+          _buildBottomBarItem(1, "Client", Icons.person_add_alt_1_rounded, Icons.person_add_alt_1_outlined),
+          _buildBottomBarItem(2, "Project", Icons.integration_instructions_rounded, Icons.integration_instructions_outlined),
+          _buildBottomBarItem(3, "Employee", Icons.badge_rounded, Icons.badge_outlined),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBarItem(int index, String title, IconData activeIcon, IconData inactiveIcon) {
+    bool isSelected = _bottomNavIndex == index;
+
+    return GestureDetector(
+      onTap: () => _onBottomNavTapped(index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.accentCyan.withOpacity(0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? activeIcon : inactiveIcon,
+              color: isSelected ? AppColors.accentCyan : AppColors.textMuted,
+              size: 24,
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              child: isSelected
+                  ? Padding(
+                padding: const EdgeInsets.only(left: 8.0),
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.accentCyan,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    fontFamily: 'sans-serif',
+                  ),
+                ),
+              )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildDrawer() {
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.75,
@@ -148,13 +284,30 @@ class _SkyDevsHomeScreenState extends State<SkyDevsHomeScreen> {
               ),
               child: Row(
                 children: [
+                  // Container(
+                  //   padding: const EdgeInsets.all(10),
+                  //   decoration: BoxDecoration(
+                  //     color: AppColors.accentCyan,
+                  //     borderRadius: BorderRadius.circular(12),
+                  //   ),
+                  //   child: const Icon(Icons.code_rounded, color: AppColors.background, size: 28),
+                  // ),
+
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
-                      color: AppColors.accentCyan,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.code_rounded, color: AppColors.background, size: 28),
+                    padding: const EdgeInsets.all(6),
+                    child: Image.asset(
+                      'assets/Appicons.png', // Update path if your asset is located elsewhere
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(Icons.code_rounded, color: AppColors.background, size: 28);
+                      },
+                    ),
                   ),
                   const SizedBox(width: 16),
                   const Expanded(
@@ -225,11 +378,9 @@ class _SkyDevsHomeScreenState extends State<SkyDevsHomeScreen> {
                                 // --- FIXED ROUTING LOGIC ---
                                 final menuTitle = (submenu['sidebar_submenu_name'] ?? '').toString().toLowerCase();
 
-                                // Check for Add Client first
                                 if (menuTitle.contains('add') && menuTitle.contains('client')) {
                                   Navigator.push(context, MaterialPageRoute(builder: (context) => const AddClientScreen()));
                                 }
-                                // Check for Client List (Broad match to catch "Clients", "Client List", etc.)
                                 else if (menuTitle.contains('client')) {
                                   Navigator.push(context, MaterialPageRoute(builder: (context) => const ClientListScreen()));
                                 }
@@ -257,8 +408,21 @@ class _SkyDevsHomeScreenState extends State<SkyDevsHomeScreen> {
                                 else if (menuTitle.contains('invoice') && menuTitle.contains('list')) {
                                   Navigator.push(context, MaterialPageRoute(builder: (context) => const InvoiceListScreen()));
                                 }
+                                else if (menuTitle.contains('start') && menuTitle.contains('deployment')) {
+                                  Navigator.push(context, MaterialPageRoute(builder: (context) => const StartDeploymentScreen()));
+                                }
                                 else if (menuTitle.contains('pipeline') || (menuTitle.contains('ci') && menuTitle.contains('cd'))) {
                                   Navigator.push(context, MaterialPageRoute(builder: (context) => const CICDPipelineScreen()));
+                                }
+                                else if (menuTitle.contains('report') || (menuTitle.contains('analytics'))) {
+                                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportsAnalyticsScreen()));
+                                }
+                                else if (menuTitle.contains('time') || menuTitle.contains('entries') || menuTitle.contains('log')) {
+                                  Navigator.push(context, MaterialPageRoute(builder: (context) => const TimeEntriesScreen()));
+                                }
+                                // NEW ROUTE FOR KANBAN BOARD added here:
+                                else if (menuTitle.contains('kanban') || menuTitle.contains('board')) {
+                                  Navigator.push(context, MaterialPageRoute(builder: (context) => const KanbanBoardScreen()));
                                 }
                               },
                             );
@@ -276,22 +440,19 @@ class _SkyDevsHomeScreenState extends State<SkyDevsHomeScreen> {
                             ),
                             children: subSubmenus.map((subSubmenu) {
                               return _buildSubmenuTile(
-                                title: submenu['sidebar_submenu_name'] ?? 'Unknown',
+                                title: subSubmenu['sidebar_submenu_name'] ?? 'Unknown',
                                 onTap: () {
                                   Navigator.pop(context); // Close drawer
 
                                   // --- FIXED ROUTING LOGIC ---
-                                  final menuTitle = (submenu['sidebar_submenu_name'] ?? '').toString().toLowerCase();
+                                  final menuTitle = (subSubmenu['sidebar_submenu_name'] ?? '').toString().toLowerCase();
 
-                                  // Check for Add Client first
                                   if (menuTitle.contains('add') && menuTitle.contains('client')) {
                                     Navigator.push(context, MaterialPageRoute(builder: (context) => const AddClientScreen()));
                                   }
-                                  // Check for Client List (Broad match to catch "Clients", "Client List", etc.)
                                   else if (menuTitle.contains('client')) {
                                     Navigator.push(context, MaterialPageRoute(builder: (context) => const ClientListScreen()));
                                   }
-                                  // Check for Add Project
                                   else if (menuTitle.contains('add') && menuTitle.contains('project')) {
                                     Navigator.push(context, MaterialPageRoute(builder: (context) => const AddProjectScreen()));
                                   }
@@ -316,8 +477,21 @@ class _SkyDevsHomeScreenState extends State<SkyDevsHomeScreen> {
                                   else if (menuTitle.contains('invoice') && menuTitle.contains('list')) {
                                     Navigator.push(context, MaterialPageRoute(builder: (context) => const InvoiceListScreen()));
                                   }
+                                  else if (menuTitle.contains('start') && menuTitle.contains('deployment')) {
+                                    Navigator.push(context, MaterialPageRoute(builder: (context) => const StartDeploymentScreen()));
+                                  }
                                   else if (menuTitle.contains('pipeline') || (menuTitle.contains('ci') && menuTitle.contains('cd'))) {
                                     Navigator.push(context, MaterialPageRoute(builder: (context) => const CICDPipelineScreen()));
+                                  }
+                                  else if (menuTitle.contains('report') || (menuTitle.contains('analytics'))) {
+                                    Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportsAnalyticsScreen()));
+                                  }
+                                  else if (menuTitle.contains('time') || menuTitle.contains('entries') || menuTitle.contains('log')) {
+                                    Navigator.push(context, MaterialPageRoute(builder: (context) => const TimeEntriesScreen()));
+                                  }
+                                  // NEW ROUTE FOR KANBAN BOARD added here:
+                                  else if (menuTitle.contains('kanban') || menuTitle.contains('board')) {
+                                    Navigator.push(context, MaterialPageRoute(builder: (context) => const KanbanBoardScreen()));
                                   }
                                 },
                               );
@@ -400,9 +574,6 @@ class _SkyDevsHomeScreenState extends State<SkyDevsHomeScreen> {
     );
   }
 
-  // ==========================================
-  // UI - CLEAN DASHBOARD BODY
-  // ==========================================
   Widget _buildBody() {
     return Center(
       child: Column(

@@ -18,8 +18,8 @@ class _BugListScreenState extends State<BugListScreen> {
   List<dynamic> _bugs = [];
   List<dynamic> _projects = [];
 
-  final String _apiUrl = 'https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_bugs';
-  final String _projectsApiUrl = 'https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_projects';
+  final String _apiUrl = 'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_bugs';
+  final String _projectsApiUrl = 'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_projects';
 
   @override
   void initState() {
@@ -207,6 +207,163 @@ class _BugListScreenState extends State<BugListScreen> {
     }
   }
 
+  // ==== NEW: Method to show all bug details in a bottom sheet ====
+  void _showBugDetails(Map<String, dynamic> bug) {
+    final severity = (bug['severity'] ?? 'minor').toString().toLowerCase();
+    final priority = (bug['priority'] ?? 'medium').toString().toLowerCase();
+    final status = (bug['status'] ?? 'open').toString().toLowerCase();
+
+    final severityColor = _getSeverityColor(severity);
+    final priorityColor = _getPriorityColor(priority);
+    final statusColor = _getStatusColor(status);
+    final projectName = _getProjectName(bug['project_id']?.toString());
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.85, // 85% of screen height
+          decoration: const BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.only(top: 16, left: 24, right: 24, bottom: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: Bug Code & Close Button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.borderDark),
+                    ),
+                    child: Text(
+                      "BUG-ID: ${bug['bug_code'] ?? 'N/A'}",
+                      style: const TextStyle(color: AppColors.textMuted, fontFamily: 'monospace', fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppColors.textMuted),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Title & Project
+              Text(
+                bug['title'] ?? 'Unknown Bug',
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textWhite),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.hub_outlined, size: 16, color: AppColors.textMuted),
+                  const SizedBox(width: 6),
+                  Text("Project: $projectName", style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Badges
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildChip("Status", status.toUpperCase(), statusColor),
+                  _buildChip("Severity", severity.toUpperCase(), severityColor),
+                  _buildChip("Priority", priority.toUpperCase(), priorityColor),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const Divider(color: AppColors.borderDark),
+              const SizedBox(height: 16),
+
+              // Scrollable Details
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDetailSection("Description", bug['description'] ?? 'No description provided.'),
+                      _buildDetailSection("Steps to Reproduce", bug['steps_to_reproduce'] ?? 'N/A'),
+
+                      const SizedBox(height: 8),
+                      const Divider(color: AppColors.borderDark),
+                      const SizedBox(height: 16),
+
+                      _buildInfoRow("Environment", bug['environment'] ?? 'N/A'),
+                      _buildInfoRow("Browser / OS", bug['browser_os'] ?? 'N/A'),
+                      _buildInfoRow("Reported By", bug['reported_by'] ?? 'System'),
+                      _buildInfoRow("Assigned To", bug['assigned_to'] ?? 'Unassigned'),
+                      _buildInfoRow("Created At", bug['created_at']?.toString() ?? 'N/A'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper for the Bottom Sheet
+  Widget _buildDetailSection(String title, String content) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(color: AppColors.textWhite, fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.borderDark),
+            ),
+            child: Text(
+              content,
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 14, height: 1.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper for the Bottom Sheet
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 14)),
+          ),
+          Expanded(
+            child: Text(
+                value.isEmpty ? 'N/A' : value,
+                style: const TextStyle(color: AppColors.textWhite, fontSize: 14, fontWeight: FontWeight.w500)
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -278,186 +435,192 @@ class _BugListScreenState extends State<BugListScreen> {
           final statusIcon = _getStatusIcon(status);
           final projectName = _getProjectName(bug['project_id']?.toString());
 
-          return Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
+          return Material(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: () => _showBugDetails(bug), // <--- ADDED ON TAP EVENT
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderDark),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.borderDark),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: severityColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(Icons.bug_report, color: severityColor, size: 24),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  bug['title'] ?? 'Unknown Bug',
-                                  style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textWhite
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: severityColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  "$statusIcon $projectName",
-                                  style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: statusColor.withOpacity(0.3)),
-                      ),
-                      child: Text(
-                        status.toUpperCase(),
-                        style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, color: AppColors.textMuted),
-                      color: AppColors.surface,
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                          // CHANGED: Open as full screen
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => EditBugScreen(
-                                bug: bug,
-                                projects: _projects,
-                                onSave: (updatedData) {
-                                  _updateBug(bug['id'].toString(), updatedData);
-                                },
+                                child: Icon(Icons.bug_report, color: severityColor, size: 24),
                               ),
-                            ),
-                          );
-                        }
-                        if (value == 'delete') _confirmDelete(bug);
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                            value: 'edit',
-                            child: Row(children: [
-                              Icon(Icons.edit_outlined, color: AppColors.textWhite, size: 18),
-                              SizedBox(width: 8),
-                              Text('Edit', style: TextStyle(color: AppColors.textWhite))
-                            ])
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      bug['title'] ?? 'Unknown Bug',
+                                      style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textWhite
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      "$statusIcon $projectName",
+                                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(children: [
-                              Icon(Icons.delete_outline, color: AppColors.dangerRed, size: 18),
-                              SizedBox(width: 8),
-                              Text('Delete', style: TextStyle(color: AppColors.dangerRed))
-                            ])
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: statusColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: statusColor.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            status.toUpperCase(),
+                            style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert, color: AppColors.textMuted),
+                          color: AppColors.surface,
+                          onSelected: (value) {
+                            if (value == 'edit') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => EditBugScreen(
+                                    bug: bug,
+                                    projects: _projects,
+                                    onSave: (updatedData) {
+                                      _updateBug(bug['id'].toString(), updatedData);
+                                    },
+                                  ),
+                                ),
+                              );
+                            }
+                            if (value == 'delete') _confirmDelete(bug);
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                                value: 'edit',
+                                child: Row(children: [
+                                  Icon(Icons.edit_outlined, color: AppColors.textWhite, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Edit', style: TextStyle(color: AppColors.textWhite))
+                                ])
+                            ),
+                            const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(children: [
+                                  Icon(Icons.delete_outline, color: AppColors.dangerRed, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Delete', style: TextStyle(color: AppColors.dangerRed))
+                                ])
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (bug['description'] != null && bug['description'].toString().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      bug['description'],
-                      style: const TextStyle(color: AppColors.textWhite, fontSize: 13),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                const Divider(color: AppColors.borderDark),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildChip("Severity", severity.toUpperCase(), severityColor),
-                    _buildChip("Priority", priority.toUpperCase(), priorityColor),
-                    if (bug['assigned_to'] != null && bug['assigned_to'].toString().isNotEmpty)
-                      _buildChip("Assigned", bug['assigned_to'], AppColors.accentCyan),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.code, size: 14, color: AppColors.textMuted),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        "Bug ID: ${bug['bug_code'] ?? 'N/A'}",
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 11, fontFamily: 'monospace'),
-                        overflow: TextOverflow.ellipsis,
+                    const SizedBox(height: 12),
+                    if (bug['description'] != null && bug['description'].toString().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          bug['description'],
+                          style: const TextStyle(color: AppColors.textWhite, fontSize: 13),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.person_outline, size: 14, color: AppColors.textMuted),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        "Reported by: ${bug['reported_by'] ?? 'System'}",
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                if (bug['created_at'] != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
+                    const Divider(color: AppColors.borderDark),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        const Icon(Icons.calendar_today, size: 12, color: AppColors.textMuted),
+                        _buildChip("Severity", severity.toUpperCase(), severityColor),
+                        _buildChip("Priority", priority.toUpperCase(), priorityColor),
+                        if (bug['assigned_to'] != null && bug['assigned_to'].toString().isNotEmpty)
+                          _buildChip("Assigned", bug['assigned_to'], AppColors.accentCyan),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.code, size: 14, color: AppColors.textMuted),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            "Created: ${bug['created_at']?.toString().split(' ')[0] ?? 'N/A'}",
-                            style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                            "Bug ID: ${bug['bug_code'] ?? 'N/A'}",
+                            style: const TextStyle(color: AppColors.textMuted, fontSize: 11, fontFamily: 'monospace'),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Icon(Icons.comment_outlined, size: 12, color: AppColors.textMuted),
+                        const Icon(Icons.person_outline, size: 14, color: AppColors.textMuted),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            "Comments: ${_getCommentCount(bug['comments'])}",
+                            "Reported by: ${bug['reported_by'] ?? 'System'}",
                             style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
-                  ),
-              ],
+                    if (bug['created_at'] != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today, size: 12, color: AppColors.textMuted),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                "Created: ${bug['created_at']?.toString().split(' ')[0] ?? 'N/A'}",
+                                style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.comment_outlined, size: 12, color: AppColors.textMuted),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                "Comments: ${_getCommentCount(bug['comments'])}",
+                                style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           );
         },

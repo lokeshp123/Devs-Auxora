@@ -78,7 +78,7 @@ class _AddProjectScreenState extends State<AddProjectScreen>
       final String? savedCompanyId = prefs.getString('company_id');
 
       final response = await http.get(Uri.parse(
-          'https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_clients'));
+          'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_clients'));
 
       final data = json.decode(response.body);
 
@@ -175,8 +175,22 @@ class _AddProjectScreenState extends State<AddProjectScreen>
 
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? savedCompanyId = prefs.getString('company_id');
+      bool isClient = prefs.getBool('isClient') ?? false;
+      String companyId = prefs.getString('company_id') ?? '';
+      String clientId = prefs.getString('clientId') ?? '';
       final String? userId = prefs.getString('user_id');
+
+      // Validate based on user type
+      if (isClient && clientId.isEmpty) {
+        _showError("Session Error: Client ID missing. Please log out and log in again.");
+        setState(() { _isSaving = false; });
+        return;
+      } else if (!isClient && companyId.isEmpty) {
+        _showError("Session Error: Company ID missing. Please log out and log in again.");
+        setState(() { _isSaving = false; });
+        return;
+      }
+
       final String uniqueProjectId = _generatedProjectId;
 
       // Prepare team members JSON
@@ -189,13 +203,15 @@ class _AddProjectScreenState extends State<AddProjectScreen>
       }).toList());
 
       final Map<String, dynamic> payload = {
-        'company_id': savedCompanyId,
+        'company_id': companyId,
+        // --- FIXED: Only insert clientId if the user is actually a client ---
+        'client_id': isClient ? clientId : null,
         'created_by': userId ?? '1',
+
         'unique_project_id': uniqueProjectId,
         'project_code': projectCodeCtrl.text.trim(),
         'project_name': projectNameCtrl.text.trim(),
         'description': descriptionCtrl.text.trim(),
-        'client_id': selectedClientId,
         'project_client_id': selectedClientId,
         'project_type': _mapProjectTypeToApi(projectType),
         'methodology': _mapMethodologyToApi(methodology),
@@ -219,14 +235,29 @@ class _AddProjectScreenState extends State<AddProjectScreen>
         'notes': notesCtrl.text.trim(),
       };
 
+      // Clean the payload to remove any null values so they aren't sent to the API
+      final Map<String, dynamic> cleanedPayload = {};
+      payload.forEach((key, value) {
+        if (value != null) {
+          cleanedPayload[key] = value;
+        }
+      });
+
       final response = await http.post(
         Uri.parse(
-            'https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_projects'),
+            'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_projects'),
         headers: {"Content-Type": "application/json"},
-        body: json.encode(payload),
+        body: json.encode(cleanedPayload), // Send the cleaned payload
       );
 
-      final data = json.decode(response.body);
+      // Safe decoding logic to handle potential PHP warnings
+      String responseBody = response.body.trim();
+      int startIndex = responseBody.indexOf('{');
+      if (startIndex > 0) {
+        responseBody = responseBody.substring(startIndex);
+      }
+
+      final data = json.decode(responseBody);
 
       if (data['status'] == 'success') {
         if (!mounted) return;
@@ -246,9 +277,7 @@ class _AddProjectScreenState extends State<AddProjectScreen>
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
-  }
-
-  void _showError(String text) {
+  }  void _showError(String text) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(text),

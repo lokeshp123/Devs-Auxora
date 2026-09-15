@@ -1,4 +1,4 @@
-package com.example.skydevs;
+package com.auxora.skydevs;
 
 import io.flutter.embedding.android.FlutterActivity;
 

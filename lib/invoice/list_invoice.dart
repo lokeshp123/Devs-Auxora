@@ -19,9 +19,9 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   List<dynamic> _clients = [];
   List<dynamic> _projects = [];
 
-  final String _apiUrl = 'https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_invoices';
-  final String _clientsApiUrl = 'https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_clients';
-  final String _projectsApiUrl = 'https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_projects';
+  final String _apiUrl = 'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_invoices';
+  final String _clientsApiUrl = 'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_clients';
+  final String _projectsApiUrl = 'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_projects';
 
   @override
   void initState() {

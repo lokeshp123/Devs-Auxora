@@ -17,7 +17,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   String _errorMessage = '';
   List<dynamic> _employees = [];
 
-  final String _apiUrl = 'https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_employees';
+  final String _apiUrl = 'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_employees';
 
   @override
   void initState() {
@@ -241,190 +241,200 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
             skills = [];
           }
 
-          return Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderDark),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: AppColors.accentCyan.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(24),
+          // CHANGED: Wrapped in GestureDetector to open details screen
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EmployeeDetailsScreen(employee: employee),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: AppColors.accentCyan.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: const Icon(Icons.person, color: AppColors.accentCyan, size: 28),
                             ),
-                            child: const Icon(Icons.person, color: AppColors.accentCyan, size: 28),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  employee['full_name'] ?? 'Unknown',
-                                  style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.textWhite
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    employee['full_name'] ?? 'Unknown',
+                                    style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textWhite
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  "$designation • $department",
-                                  style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "$designation • $department",
+                                    style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: statusColor.withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          status.toUpperCase(),
+                          style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, color: AppColors.textMuted),
+                        color: AppColors.surface,
+                        onSelected: (value) {
+                          if (value == 'edit') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditEmployeeScreen(
+                                  employee: employee,
+                                  onSave: (updatedData) {
+                                    _updateEmployee(employee['id'].toString(), updatedData);
+                                  },
+                                ),
+                              ),
+                            );
+                          }
+                          if (value == 'delete') _confirmDelete(employee);
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                              value: 'edit',
+                              child: Row(children: [
+                                Icon(Icons.edit_outlined, color: AppColors.textWhite, size: 18),
+                                SizedBox(width: 8),
+                                Text('Edit', style: TextStyle(color: AppColors.textWhite))
+                              ])
+                          ),
+                          const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(children: [
+                                Icon(Icons.delete_outline, color: AppColors.dangerRed, size: 18),
+                                SizedBox(width: 8),
+                                Text('Delete', style: TextStyle(color: AppColors.dangerRed))
+                              ])
                           ),
                         ],
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: statusColor.withOpacity(0.3)),
-                      ),
-                      child: Text(
-                        status.toUpperCase(),
-                        style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, color: AppColors.textMuted),
-                      color: AppColors.surface,
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                          // CHANGED: Open as a full screen instead of Dialog
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => EditEmployeeScreen(
-                                employee: employee,
-                                onSave: (updatedData) {
-                                  _updateEmployee(employee['id'].toString(), updatedData);
-                                },
-                              ),
-                            ),
-                          );
-                        }
-                        if (value == 'delete') _confirmDelete(employee);
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                            value: 'edit',
-                            child: Row(children: [
-                              Icon(Icons.edit_outlined, color: AppColors.textWhite, size: 18),
-                              SizedBox(width: 8),
-                              Text('Edit', style: TextStyle(color: AppColors.textWhite))
-                            ])
-                        ),
-                        const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(children: [
-                              Icon(Icons.delete_outline, color: AppColors.dangerRed, size: 18),
-                              SizedBox(width: 8),
-                              Text('Delete', style: TextStyle(color: AppColors.dangerRed))
-                            ])
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Icon(Icons.email_outlined, size: 14, color: AppColors.textMuted),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        employee['email'] ?? 'N/A',
-                        style: const TextStyle(color: AppColors.textWhite, fontSize: 12),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    const Icon(Icons.phone_outlined, size: 14, color: AppColors.textMuted),
-                    const SizedBox(width: 6),
-                    Text(
-                      employee['phone'] ?? 'N/A',
-                      style: const TextStyle(color: AppColors.textWhite, fontSize: 12),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(workModeIcon, style: const TextStyle(fontSize: 14)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        "${employee['work_mode']?.toString().toUpperCase() ?? 'ONSITE'} • ${employee['employment_type']?.toString().toUpperCase() ?? 'PERMANENT'}",
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    const Icon(Icons.calendar_today, size: 12, color: AppColors.textMuted),
-                    const SizedBox(width: 6),
-                    Text(
-                      "Joined: ${employee['joining_date'] ?? 'N/A'}",
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                    ),
-                  ],
-                ),
-                if (skills.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: skills.take(3).map((skill) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentCyan.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          skill,
-                          style: const TextStyle(color: AppColors.accentCyan, fontSize: 11),
-                        ),
-                      );
-                    }).toList(),
+                    ],
                   ),
-                  if (skills.length > 3)
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.email_outlined, size: 14, color: AppColors.textMuted),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          employee['email'] ?? 'N/A',
+                          style: const TextStyle(color: AppColors.textWhite, fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Icon(Icons.phone_outlined, size: 14, color: AppColors.textMuted),
+                      const SizedBox(width: 6),
+                      Text(
+                        employee['phone'] ?? 'N/A',
+                        style: const TextStyle(color: AppColors.textWhite, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text(workModeIcon, style: const TextStyle(fontSize: 14)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          "${employee['work_mode']?.toString().toUpperCase() ?? 'ONSITE'} • ${employee['employment_type']?.toString().toUpperCase() ?? 'PERMANENT'}",
+                          style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Icon(Icons.calendar_today, size: 12, color: AppColors.textMuted),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Joined: ${employee['joining_date'] ?? 'N/A'}",
+                        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  if (skills.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: skills.take(3).map((skill) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentCyan.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            skill,
+                            style: const TextStyle(color: AppColors.accentCyan, fontSize: 11),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    if (skills.length > 3)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          "+${skills.length - 3} more skills",
+                          style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                        ),
+                      ),
+                  ],
+                  if (employee['employee_code'] != null && employee['employee_code'].toString().isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.only(top: 12),
                       child: Text(
-                        "+${skills.length - 3} more skills",
-                        style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                        "Code: ${employee['employee_code']}",
+                        style: const TextStyle(color: AppColors.textMuted, fontSize: 10, fontFamily: 'monospace'),
                       ),
                     ),
                 ],
-                if (employee['employee_code'] != null && employee['employee_code'].toString().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      "Code: ${employee['employee_code']}",
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 10, fontFamily: 'monospace'),
-                    ),
-                  ),
-              ],
+              ),
             ),
           );
         },
@@ -434,7 +444,258 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 }
 
 // ==========================================
-// EDIT EMPLOYEE SCREEN (Changed from Dialog)
+// EMPLOYEE DETAILS SCREEN (NEWLY ADDED)
+// ==========================================
+class EmployeeDetailsScreen extends StatelessWidget {
+  final Map<String, dynamic> employee;
+
+  const EmployeeDetailsScreen({Key? key, required this.employee}) : super(key: key);
+
+  List<dynamic> _parseJsonList(dynamic jsonInput) {
+    if (jsonInput == null) return [];
+    if (jsonInput is List) return jsonInput;
+    if (jsonInput is String && jsonInput.isNotEmpty) {
+      try {
+        var parsed = json.decode(jsonInput);
+        if (parsed is String) {
+          parsed = json.decode(parsed); // Handle double-encoded JSON strings
+        }
+        if (parsed is List) return parsed;
+        if (parsed is Map) return [parsed];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final primarySkills = _parseJsonList(employee['primary_skills']);
+    final skillMatrix = _parseJsonList(employee['skill_matrix']);
+    final assignedProjects = _parseJsonList(employee['assigned_projects']);
+    final emergencyContacts = _parseJsonList(employee['emergency_contacts']);
+    final certifications = _parseJsonList(employee['certifications']);
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        elevation: 0,
+        flexibleSpace: Container(decoration: const BoxDecoration(gradient: AppColors.premiumGradient)),
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text("Employee Details", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- HEADER PROFILE CARD ---
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: AppColors.accentCyan.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.person, size: 40, color: AppColors.accentCyan),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    employee['full_name'] ?? 'Unknown Employee',
+                    style: const TextStyle(color: AppColors.textWhite, fontSize: 22, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "${employee['designation'] ?? 'N/A'} • ${employee['department'] ?? 'N/A'}",
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.borderDark),
+                    ),
+                    child: Text(
+                      (employee['status'] ?? 'Active').toString().toUpperCase(),
+                      style: const TextStyle(color: AppColors.accentCyan, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  )
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // --- PERSONAL INFO ---
+            _buildSection("Personal Information", [
+              _buildDetailRow("Email", employee['email']),
+              _buildDetailRow("Phone", employee['phone']),
+              _buildDetailRow("Date of Birth", employee['date_of_birth']),
+              _buildDetailRow("Gender", employee['gender']),
+              _buildDetailRow("Blood Group", employee['blood_group']),
+              _buildDetailRow("Marital Status", employee['marital_status']),
+              _buildDetailRow("PAN Number", employee['pan_number']),
+              _buildDetailRow("Aadhar Number", employee['aadhar_number']?.toString().isNotEmpty == true ? '[Aadhaar Redacted]' : null),
+              _buildDetailRow("Current Address", employee['current_address']),
+              _buildDetailRow("Permanent Address", employee['permanent_address']),
+            ]),
+
+            // --- EMERGENCY CONTACTS ---
+            if (emergencyContacts.isNotEmpty)
+              _buildSection("Emergency Contacts", emergencyContacts.map((contact) {
+                final name = contact['name'] ?? 'Unknown';
+                final relation = contact['relation'] ?? '';
+                final phone = contact['phone'] ?? '';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          "$name ${relation.isNotEmpty ? '($relation)' : ''}",
+                          style: const TextStyle(color: AppColors.textWhite, fontSize: 13),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(phone, style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                    ],
+                  ),
+                );
+              }).toList()),
+
+            // --- PROFESSIONAL INFO ---
+            _buildSection("Professional Information", [
+              _buildDetailRow("Employee Code", employee['employee_code']),
+              _buildDetailRow("Reporting To", employee['reporting_to']),
+              _buildDetailRow("Work Mode", employee['work_mode']),
+              _buildDetailRow("Shift", employee['shift']),
+              _buildDetailRow("Employment Type", employee['employment_type']),
+              _buildDetailRow("Joining Date", employee['joining_date']),
+              _buildDetailRow("Confirmation Date", employee['confirmation_date']),
+            ]),
+
+            // --- SKILLS & PROJECTS ---
+            _buildSection("Skills & Projects", [
+              if (primarySkills.isNotEmpty)
+                _buildDetailRow("Primary Skills", primarySkills.join(", ")),
+
+              if (skillMatrix.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text("Skill Matrix:", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                const SizedBox(height: 4),
+                ...skillMatrix.map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4.0),
+                  child: Text(
+                    "• ${s['skill'] ?? 'Unknown'} (Self: ${s['self_rating']}, Mgr: ${s['manager_rating']})",
+                    style: const TextStyle(color: AppColors.textWhite, fontSize: 13),
+                  ),
+                )).toList(),
+              ],
+
+              if (assignedProjects.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text("Assigned Projects:", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                const SizedBox(height: 4),
+                ...assignedProjects.map((p) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4.0),
+                  child: Text(
+                    "• ${p['name'] ?? 'Unknown'} (${p['role'] ?? 'Member'}) - ${p['allocation']}%",
+                    style: const TextStyle(color: AppColors.textWhite, fontSize: 13),
+                  ),
+                )).toList(),
+              ]
+            ]),
+
+            // --- CERTIFICATIONS ---
+            if (certifications.isNotEmpty)
+              _buildSection("Certifications", certifications.map((c) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4.0),
+                  child: Text("• ${c['name']} from ${c['issuer']} (${c['year']})", style: const TextStyle(color: AppColors.textWhite, fontSize: 13)),
+                );
+              }).toList()),
+
+            // --- PAYROLL & BANK ---
+            _buildSection("Payroll & Bank Details", [
+              _buildDetailRow("CTC (Annual)", employee['ctc'] != null ? "₹${employee['ctc']}" : null),
+              _buildDetailRow("Basic Salary", employee['basic_salary'] != null ? "₹${employee['basic_salary']}" : null),
+              _buildDetailRow("Net Salary", employee['net_salary'] != null ? "₹${employee['net_salary']}" : null),
+              _buildDetailRow("Bank Name", employee['bank_name']),
+              _buildDetailRow("Account Number", employee['bank_account_number']),
+              _buildDetailRow("IFSC Code", employee['ifsc_code']),
+              _buildDetailRow("UAN Number", employee['uan_number']),
+              _buildDetailRow("PF Number", employee['pf_number']),
+              _buildDetailRow("ESI Number", employee['esi_number']),
+            ]),
+
+            // --- NOTES ---
+            if (employee['notes'] != null && employee['notes'].toString().isNotEmpty)
+              _buildSection("Additional Notes", [
+                Text(employee['notes'], style: const TextStyle(color: AppColors.textWhite, fontSize: 13)),
+              ]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection(String title, List<Widget> children) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderDark),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: const TextStyle(color: AppColors.accentCyan, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1),
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, dynamic value) {
+    if (value == null || value.toString().isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value.toString(),
+              style: const TextStyle(color: AppColors.textWhite, fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+// ==========================================
+// EDIT EMPLOYEE SCREEN (Unchanged)
 // ==========================================
 
 class EditEmployeeScreen extends StatefulWidget {
@@ -851,15 +1112,38 @@ class _EditEmployeeScreenState extends State<EditEmployeeScreen> with SingleTick
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.borderDark)),
-              child: Row(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
                 children: [
-                  Expanded(child: _buildSimpleTextField("Name", contact['name'] ?? '', (v) => emergencyContacts[index]['name'] = v)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildSimpleTextField("Relation", contact['relation'] ?? '', (v) => emergencyContacts[index]['relation'] = v)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildSimpleTextField("Phone", contact['phone'] ?? '', (v) => emergencyContacts[index]['phone'] = v, isPhone: true)),
-                  IconButton(icon: const Icon(Icons.delete_outline, color: AppColors.dangerRed), onPressed: () => _removeEmergencyContact(index)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildSimpleTextField("Name", contact['name'] ?? '', (v) => emergencyContacts[index]['name'] = v),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildSimpleTextField("Relation", contact['relation'] ?? '', (v) => emergencyContacts[index]['relation'] = v),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildSimpleTextField("Phone", contact['phone'] ?? '', (v) => emergencyContacts[index]['phone'] = v, isPhone: true),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: AppColors.dangerRed),
+                        onPressed: () => _removeEmergencyContact(index),
+                        tooltip: "Remove Contact",
+                      ),
+                    ],
+                  ),
                 ],
               ),
             );

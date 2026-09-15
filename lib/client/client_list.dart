@@ -18,7 +18,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
   String _errorMessage = '';
   List<dynamic> _clients = [];
 
-  final String _apiUrl = 'https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_clients';
+  final String _apiUrl = 'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_clients';
 
   @override
   void initState() {
@@ -176,90 +176,98 @@ class _ClientListScreenState extends State<ClientListScreen> {
           final status = (client['status'] ?? '').toString().toLowerCase();
           Color statusColor = status == 'active' ? AppColors.successGreen : AppColors.dangerRed;
 
-          return Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderDark),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(client['company_name'] ?? 'Unknown Company', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textWhite)),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: statusColor.withOpacity(0.3)),
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ClientDetailsScreen(client: client),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(client['company_name'] ?? 'Unknown Company', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textWhite)),
                       ),
-                      child: Text(status.toUpperCase(), style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(width: 8),
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, color: AppColors.textMuted),
-                      color: AppColors.surface,
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                          // CHANGED: Open as a full screen instead of Dialog
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => EditClientScreen(
-                                client: client,
-                                onSave: (updatedData) {
-                                  _updateClient(client['id'].toString(), updatedData);
-                                },
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: statusColor.withOpacity(0.3)),
+                        ),
+                        child: Text(status.toUpperCase(), style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 8),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, color: AppColors.textMuted),
+                        color: AppColors.surface,
+                        onSelected: (value) {
+                          if (value == 'edit') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditClientScreen(
+                                  client: client,
+                                  onSave: (updatedData) {
+                                    _updateClient(client['id'].toString(), updatedData);
+                                  },
+                                ),
                               ),
-                            ),
-                          );
-                        }
-                        if (value == 'delete') _confirmDelete(client);
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_outlined, color: AppColors.textWhite, size: 18), SizedBox(width: 8), Text('Edit', style: TextStyle(color: AppColors.textWhite))])),
-                        const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, color: AppColors.dangerRed, size: 18), SizedBox(width: 8), Text('Delete', style: TextStyle(color: AppColors.dangerRed))])),
-                      ],
-                    ),
-                  ],
-                ),
-                Text("ID: ${client['unique_client_id'] ?? 'N/A'}", style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
-                const SizedBox(height: 16),
-                const Divider(color: AppColors.borderDark, height: 1),
-                const SizedBox(height: 16),
+                            );
+                          }
+                          if (value == 'delete') _confirmDelete(client);
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_outlined, color: AppColors.textWhite, size: 18), SizedBox(width: 8), Text('Edit', style: TextStyle(color: AppColors.textWhite))])),
+                          const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, color: AppColors.dangerRed, size: 18), SizedBox(width: 8), Text('Delete', style: TextStyle(color: AppColors.dangerRed))])),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Text("ID: ${client['unique_client_id'] ?? 'N/A'}", style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                  const SizedBox(height: 16),
+                  const Divider(color: AppColors.borderDark, height: 1),
+                  const SizedBox(height: 16),
 
-                // FIX: Wrapped contact info Text in Expanded to prevent overflow
-                Row(
-                    children: [
-                      const Icon(Icons.person_rounded, size: 16, color: AppColors.textMuted),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text("${client['primary_contact_name'] ?? 'N/A'} (${client['primary_contact_role'] ?? 'Role'})",
-                            style: const TextStyle(color: AppColors.textWhite, fontSize: 13),
-                            overflow: TextOverflow.ellipsis),
-                      )
-                    ]
-                ),
-                const SizedBox(height: 8),
-                Row(
-                    children: [
-                      const Icon(Icons.email_rounded, size: 16, color: AppColors.textMuted),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(client['primary_contact_email'] ?? 'N/A',
-                            style: const TextStyle(color: AppColors.textWhite, fontSize: 13),
-                            overflow: TextOverflow.ellipsis),
-                      )
-                    ]
-                ),
-              ],
+                  Row(
+                      children: [
+                        const Icon(Icons.person_rounded, size: 16, color: AppColors.textMuted),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text("${client['primary_contact_name'] ?? 'N/A'} (${client['primary_contact_role'] ?? 'Role'})",
+                              style: const TextStyle(color: AppColors.textWhite, fontSize: 13),
+                              overflow: TextOverflow.ellipsis),
+                        )
+                      ]
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                      children: [
+                        const Icon(Icons.email_rounded, size: 16, color: AppColors.textMuted),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(client['primary_contact_email'] ?? 'N/A',
+                              style: const TextStyle(color: AppColors.textWhite, fontSize: 13),
+                              overflow: TextOverflow.ellipsis),
+                        )
+                      ]
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -269,7 +277,178 @@ class _ClientListScreenState extends State<ClientListScreen> {
 }
 
 // ==========================================
-// EDIT CLIENT SCREEN (Changed from Dialog)
+// CLIENT DETAILS SCREEN (NEWLY ADDED)
+// ==========================================
+
+class ClientDetailsScreen extends StatelessWidget {
+  final Map<String, dynamic> client;
+
+  const ClientDetailsScreen({Key? key, required this.client}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        elevation: 0,
+        flexibleSpace: Container(decoration: const BoxDecoration(gradient: AppColors.premiumGradient)),
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text("Client Details", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- HEADER CARD ---
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    client['company_name'] ?? 'Unknown Company',
+                    style: const TextStyle(color: AppColors.textWhite, fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "ID: ${client['unique_client_id'] ?? 'N/A'} | Industry: ${client['industry'] ?? 'N/A'}",
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Website: ${client['website'] ?? 'N/A'} | GST/PAN: ${client['gst_pan'] ?? 'N/A'}",
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // --- CORPORATE INFO ---
+            _buildSection("Corporate Information", [
+              _buildDetailRow("Client Type", client['client_type']),
+              _buildDetailRow("Status", client['status']),
+              _buildDetailRow("Rating", client['rating']),
+              _buildDetailRow("Client Since", client['client_since']),
+            ]),
+
+            // --- PRIMARY CONTACT ---
+            _buildSection("Primary Contact", [
+              _buildDetailRow("Name", client['primary_contact_name']),
+              _buildDetailRow("Role", client['primary_contact_role']),
+              _buildDetailRow("Email", client['primary_contact_email']),
+              _buildDetailRow("Phone", client['primary_contact_phone']),
+              _buildDetailRow("WhatsApp", client['primary_contact_whatsapp']),
+              _buildDetailRow("LinkedIn", client['primary_contact_linkedin']),
+            ]),
+
+            // --- SECONDARY CONTACT ---
+            if ((client['secondary_contact_name'] ?? '').toString().isNotEmpty)
+              _buildSection("Secondary Contact", [
+                _buildDetailRow("Name", client['secondary_contact_name']),
+                _buildDetailRow("Role", client['secondary_contact_role']),
+                _buildDetailRow("Email", client['secondary_contact_email']),
+                _buildDetailRow("Phone", client['secondary_contact_phone']),
+              ]),
+
+            // --- CONTRACT INFO ---
+            _buildSection("Contract Information", [
+              _buildDetailRow("Contract Type", client['contract_type']),
+              _buildDetailRow("Contract Value", client['contract_value'] != null ? "₹${client['contract_value']}" : null),
+              _buildDetailRow("Payment Terms", client['payment_terms']),
+              _buildDetailRow("Start Date", client['contract_start_date']),
+              _buildDetailRow("End Date", client['contract_end_date']),
+              _buildDetailRow("Renewal Date", client['renewal_date']),
+              _buildDetailRow("Auto Renew", client['auto_renew']?.toString() == '1' ? 'Yes' : 'No'),
+              _buildDetailRow("Contract Document", client['contract_document']),
+              _buildDetailRow("NDA Document", client['nda_document']),
+              _buildDetailRow("MSA Document", client['msa_document']),
+            ]),
+
+            // --- BILLING CONFIG ---
+            _buildSection("Billing Configuration", [
+              _buildDetailRow("Hourly Rate", client['hourly_rate'] != null ? "₹${client['hourly_rate']}" : null),
+              _buildDetailRow("Discount", client['discount_percentage'] != null ? "${client['discount_percentage']}%" : null),
+              _buildDetailRow("Late Fee", client['late_fee_percentage'] != null ? "${client['late_fee_percentage']}%" : null),
+            ]),
+
+            // --- DEVELOPER TOOLS & INTEGRATION ---
+            _buildSection("Developer Tools", [
+              _buildDetailRow("Git Provider", client['git_provider']),
+              _buildDetailRow("Repository URL", client['repo_url']),
+              _buildDetailRow("API Key", client['api_key']),
+              _buildDetailRow("Cloud Provider", client['server_provider']),
+              _buildDetailRow("Dashboard URL", client['dashboard_url']),
+            ]),
+
+            // --- NOTES ---
+            if ((client['notes'] ?? '').toString().isNotEmpty)
+              _buildSection("Additional Notes", [
+                Text(client['notes'], style: const TextStyle(color: AppColors.textWhite, fontSize: 13)),
+              ]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection(String title, List<Widget> children) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderDark),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: const TextStyle(color: AppColors.accentCyan, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1),
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, dynamic value) {
+    if (value == null || value.toString().isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value.toString(),
+              style: const TextStyle(color: AppColors.textWhite, fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==========================================
+// EDIT CLIENT SCREEN (Unchanged)
 // ==========================================
 
 class EditClientScreen extends StatefulWidget {
@@ -283,7 +462,6 @@ class EditClientScreen extends StatefulWidget {
 }
 
 class _EditClientScreenState extends State<EditClientScreen> with SingleTickerProviderStateMixin {
-  // --- Basic Tab Controllers ---
   late TextEditingController companyNameCtrl;
   late TextEditingController websiteCtrl;
   late TextEditingController gstCtrl;
@@ -293,7 +471,6 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
   String status = 'Active';
   String rating = '5.0';
 
-  // --- Contact Tab Controllers ---
   late TextEditingController priNameCtrl;
   late TextEditingController priRoleCtrl;
   late TextEditingController priEmailCtrl;
@@ -305,7 +482,6 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
   late TextEditingController secEmailCtrl;
   late TextEditingController secPhoneCtrl;
 
-  // --- Contract Tab Controllers ---
   late TextEditingController contractValueCtrl;
   late TextEditingController startDateCtrl;
   late TextEditingController endDateCtrl;
@@ -314,7 +490,6 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
   String paymentTerms = 'Net 15';
   bool autoRenew = false;
 
-  // Contract Documents
   File? _contractDocument;
   File? _ndaDocument;
   File? _msaDocument;
@@ -322,12 +497,10 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
   String? _existingNdaDoc;
   String? _existingMsaDoc;
 
-  // --- Billing Tab Controllers ---
   late TextEditingController hourlyRateCtrl;
   late TextEditingController discountCtrl;
   late TextEditingController lateFeeCtrl;
 
-  // --- Integration Tab Controllers ---
   late TextEditingController repoUrlCtrl;
   late TextEditingController apiKeyCtrl;
   late TextEditingController dashUrlCtrl;
@@ -724,7 +897,6 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
                   activeColor: AppColors.accentCyan,
                   onChanged: (val) => setState(() => autoRenew = val ?? false),
                 ),
-                // FIX: Wrapped checkbox text in Expanded
                 const Expanded(
                   child: Text("Auto-renew contract",
                       style: TextStyle(color: AppColors.textWhite, fontSize: 15),
@@ -867,16 +1039,11 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
     );
   }
 
-  // ==========================================
-  // WIDGET HELPERS
-  // ==========================================
-
   Widget _sectionHeader(String title, IconData icon) {
     return Row(
       children: [
         Icon(icon, color: AppColors.accentCyan, size: 22),
         const SizedBox(width: 12),
-        // FIX: Wrapped Section Title in Flexible
         Flexible(
           child: Text(title,
               style: const TextStyle(
@@ -917,7 +1084,6 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
       children: [
         Row(
           children: [
-            // FIX: Wrapped label in Flexible for small screens inside column layout
             Flexible(
               child: Text(label,
                   style: const TextStyle(color: AppColors.textMuted, fontSize: 13),

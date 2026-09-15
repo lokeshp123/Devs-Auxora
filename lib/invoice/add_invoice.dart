@@ -24,6 +24,23 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
   String? _existingInvoiceNumber;
 
+
+  // Helper to safely clean and format dates coming from the API
+  String _cleanDate(String? rawDate) {
+    if (rawDate == null || rawDate.isEmpty || rawDate == 'null' || rawDate == '0000-00-00') {
+      return '';
+    }
+    // If it includes a time part, take only the date part
+    String clean = rawDate.split(' ').first.trim();
+    // Try to parse it
+    try {
+      DateTime dt = DateTime.parse(clean);
+      return "${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}";
+    } catch (e) {
+      return clean;
+    }
+  }
+
   // Auto-generated Invoice Number (or retains existing if editing)
   String get _invoiceNumber {
     if (_existingInvoiceNumber != null && _existingInvoiceNumber!.isNotEmpty) {
@@ -71,7 +88,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   double _taxAmount = 0.0;
   double _discountAmount = 0.0;
   double _grandTotal = 0.0;
-
   @override
   void initState() {
     super.initState();
@@ -84,8 +100,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     } else {
       // Set default dates for a new invoice
       final now = DateTime.now();
+      // FIX: Use Dart's built-in Duration to safely add 30 days and handle month rollovers
+      final dueDate = now.add(const Duration(days: 30));
+
       invoiceDateCtrl.text = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-      dueDateCtrl.text = "${now.year}-${now.month.toString().padLeft(2, '0')}-${(now.day + 30).toString().padLeft(2, '0')}";
+      dueDateCtrl.text = "${dueDate.year}-${dueDate.month.toString().padLeft(2, '0')}-${dueDate.day.toString().padLeft(2, '0')}";
     }
   }
 
@@ -94,10 +113,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     selectedClientId = d['client_id']?.toString();
     selectedProjectId = d['project_id']?.toString();
 
-    invoiceDateCtrl.text = d['invoice_date']?.toString() ?? '';
-    dueDateCtrl.text = d['due_date']?.toString() ?? '';
-    periodFromCtrl.text = d['period_start']?.toString() ?? '';
-    periodToCtrl.text = d['period_end']?.toString() ?? '';
+    invoiceDateCtrl.text = _cleanDate(d['invoice_date']?.toString());
+    dueDateCtrl.text = _cleanDate(d['due_date']?.toString());
+    periodFromCtrl.text = _cleanDate(d['period_start']?.toString());
+    periodToCtrl.text = _cleanDate(d['period_end']?.toString());
     poNumberCtrl.text = d['po_number']?.toString() ?? '';
 
     taxRateCtrl.text = d['tax_percentage']?.toString() ?? '18';
@@ -139,7 +158,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       final String? savedCompanyId = prefs.getString('company_id');
 
-      final response = await http.get(Uri.parse('https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_clients'));
+      final response = await http.get(Uri.parse('https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_clients'));
       final data = json.decode(response.body);
 
       if (data['status'] == 'success') {
@@ -170,7 +189,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       final String? savedCompanyId = prefs.getString('company_id');
 
-      final response = await http.get(Uri.parse('https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_projects'));
+      final response = await http.get(Uri.parse('https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_projects'));
       final data = json.decode(response.body);
 
       if (data['status'] == 'success') {
@@ -349,8 +368,21 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? savedCompanyId = prefs.getString('company_id');
+      bool isClient = prefs.getBool('isClient') ?? false;
+      String companyId = prefs.getString('company_id') ?? '';
+      String clientIdSession = prefs.getString('clientId') ?? '';
       final String? userId = prefs.getString('user_id');
+
+      // Validate based on user type
+      if (isClient && clientIdSession.isEmpty) {
+        _showError("Session Error: Client ID missing. Please log out and log in again.");
+        setState(() { _isSaving = false; });
+        return;
+      } else if (!isClient && companyId.isEmpty) {
+        _showError("Session Error: Company ID missing. Please log out and log in again.");
+        setState(() { _isSaving = false; });
+        return;
+      }
 
       String itemsJson = json.encode(manualItems.map((item) {
         return {
@@ -371,11 +403,17 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       double subtotal = _timesheetTotal + _manualItemsTotal;
 
       final Map<String, dynamic> payload = {
-        'company_id': savedCompanyId,
+        'company_id': companyId,
         'created_by': userId ?? '1',
+
+        // --- CHANGED: Added client_id_owner here ---
+        'client_id_owner': isClient ? clientIdSession : null,
+
+        // Keeps the dropdown selection for the actual client being billed
+        'client_id': selectedClientId,
+
         'invoice_number': _invoiceNumber,
         'po_number': poNumberCtrl.text.trim().isEmpty ? null : poNumberCtrl.text.trim(),
-        'client_id': selectedClientId,
         'project_id': selectedProjectId,
         'invoice_date': invoiceDateCtrl.text.trim(),
         'due_date': dueDateCtrl.text.trim(),
@@ -399,19 +437,34 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         payload['id'] = widget.invoiceData!['id'].toString();
       }
 
+      // Clean the payload to remove any null values so they aren't sent to the API
+      final Map<String, dynamic> cleanedPayload = {};
+      payload.forEach((key, value) {
+        if (value != null) {
+          cleanedPayload[key] = value;
+        }
+      });
+
       final response = await http.post(
-        Uri.parse('https://skydevs.skynetproduct.com/skydevs_API.php?table=skydevs_invoices'),
+        Uri.parse('https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_invoices'),
         headers: {"Content-Type": "application/json"},
-        body: json.encode(payload),
+        body: json.encode(cleanedPayload),
       );
 
-      final data = json.decode(response.body);
+      // Safe decoding logic to handle potential PHP warnings/HTML output
+      String responseBody = response.body.trim();
+      int startIndex = responseBody.indexOf('{');
+      if (startIndex > 0) {
+        responseBody = responseBody.substring(startIndex);
+      }
+
+      final data = json.decode(responseBody);
 
       if (data['status'] == 'success') {
         if (!mounted) return;
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text("Invoice saved successfully!"),
             backgroundColor: AppColors.successGreen,
             behavior: SnackBarBehavior.floating,
@@ -426,7 +479,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       if (mounted) setState(() => _isSaving = false);
     }
   }
-
   void _showError(String text) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -438,25 +490,40 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   Future<void> _selectDateRange() async {
+    // Try to pre-load existing range if available
+    DateTimeRange? initialRange = _selectedDateRange;
+    if (initialRange == null && periodFromCtrl.text.isNotEmpty && periodToCtrl.text.isNotEmpty) {
+      try {
+        DateTime start = DateTime.parse(periodFromCtrl.text);
+        DateTime end = DateTime.parse(periodToCtrl.text);
+        initialRange = DateTimeRange(start: start, end: end);
+      } catch (e) {
+        initialRange = null;
+      }
+    }
+
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
-      initialDateRange: _selectedDateRange,
+      initialDateRange: initialRange,
       builder: (context, child) {
         return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppColors.accentCyan,
-              onPrimary: Colors.black,
-              surface: AppColors.surface,
-              onSurface: Colors.white,
+          // FIX: Use a clean light theme so text is visible on the white background
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.accentCyan, // Header background color
+              onPrimary: Colors.white,       // Header text color
+              surface: Colors.white,         // Background color of the calendar
+              onSurface: Colors.black,       // Text color of the days (Fixes the invisible text)
             ),
+            dialogBackgroundColor: Colors.white,
           ),
           child: child!,
         );
       },
     );
+
     if (picked != null) {
       setState(() {
         _selectedDateRange = picked;
@@ -901,51 +968,74 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
         ),
         const SizedBox(height: 6),
-        GestureDetector(
-          onTap: onTap ?? () async {
-            final date = await showDatePicker(
-              context: context,
-              initialDate: DateTime.now(),
-              firstDate: DateTime(2020),
-              lastDate: DateTime(2030),
-              builder: (context, child) {
-                return Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.dark(
-                      primary: AppColors.accentCyan,
-                      onPrimary: Colors.black,
-                      surface: AppColors.surface,
-                      onSurface: Colors.white,
-                    ),
-                  ),
-                  child: child!,
+        // ValueListenableBuilder ensures the UI updates whenever the controller text changes
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (context, value, child) {
+            return TextFormField(
+              controller: controller,
+              readOnly: true,
+              onTap: onTap ?? () async {
+                DateTime initial = DateTime.now();
+                if (controller.text.isNotEmpty) {
+                  try {
+                    initial = DateTime.parse(controller.text);
+                  } catch (e) {
+                    initial = DateTime.now();
+                  }
+                }
+
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: initial,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2030),
+                  builder: (context, child) {
+                    // ---> FIX: Using Light Theme here so the OK/Save button is visible! <---
+                    return Theme(
+                      data: ThemeData.light().copyWith(
+                        colorScheme: const ColorScheme.light(
+                          primary: AppColors.accentCyan, // Header & Button color
+                          onPrimary: Colors.white,       // Header text color
+                          surface: Colors.white,         // Background color
+                          onSurface: Colors.black,       // Text color (fixes invisible text)
+                        ),
+                        dialogBackgroundColor: Colors.white,
+                      ),
+                      child: child!,
+                    );
+                  },
                 );
+
+                // ---> This is where the date is inserted into the form! <---
+                if (date != null) {
+                  controller.text = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+                }
               },
+              style: const TextStyle(color: AppColors.textWhite),
+              decoration: InputDecoration(
+                hintText: "Select Date",
+                hintStyle: const TextStyle(color: AppColors.textMuted),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.borderDark),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.accentCyan),
+                ),
+                filled: true,
+                fillColor: AppColors.surface,
+                suffixIcon: const Icon(Icons.calendar_today, size: 18, color: AppColors.textMuted),
+              ),
             );
-            if (date != null) {
-              controller.text = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-            }
           },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.borderDark),
-              color: AppColors.surface,
-            ),
-            child: Row(
-              children: [
-                Expanded(child: Text(controller.text.isEmpty ? "Select Date" : controller.text, style: TextStyle(color: controller.text.isEmpty ? AppColors.textMuted : AppColors.textWhite))),
-                const Icon(Icons.calendar_today, size: 18, color: AppColors.textMuted),
-              ],
-            ),
-          ),
         ),
       ],
     );
   }
 
-  // FIX APPLIED HERE: Added safety logic for Dropdown value
   Widget _buildClientDropdown() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
