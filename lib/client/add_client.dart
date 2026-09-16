@@ -88,6 +88,43 @@ class _AddClientScreenState extends State<AddClientScreen>
     clientSinceCtrl.text = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
   }
 
+  Future<void> _pickDate(TextEditingController controller) async {
+    DateTime initial = DateTime.now();
+    if (controller.text.trim().isNotEmpty) {
+      try {
+        initial = DateTime.parse(controller.text.trim());
+      } catch (_) {}
+    }
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppColors.accentCyan,
+              onPrimary: Colors.white,
+              surface: AppColors.surface,
+              onSurface: AppColors.textWhite,
+            ),
+            dialogBackgroundColor: AppColors.background,
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        controller.text =
+        "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+      });
+    }
+  }
+
   Future<void> _pickGeneralFiles() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
@@ -544,12 +581,12 @@ class _AddClientScreenState extends State<AddClientScreen>
             _buildDropdown("Payment Terms", paymentTerms,
                 ['Net 15', 'Net 30', 'Net 45', 'Due on Receipt'],
                     (v) => setState(() => paymentTerms = v!)),
-            _buildTextField("Renewal Date", renewalDateCtrl, isDate: true),
+            _buildDateField("Renewal Date", renewalDateCtrl),
           ]),
           const SizedBox(height: 20),
           _buildTextFieldRow([
-            _buildTextField("Contract Start Date", startDateCtrl, isDate: true),
-            _buildTextField("Contract End Date", endDateCtrl, isDate: true),
+            _buildDateField("Contract Start Date", startDateCtrl),
+            _buildDateField("Contract End Date", endDateCtrl),
           ]),
           const SizedBox(height: 16),
           // Auto-renew Checkbox
@@ -586,6 +623,37 @@ class _AddClientScreenState extends State<AddClientScreen>
     );
   }
 
+
+  Widget _buildDateField(String label, TextEditingController controller,
+      {bool isRequired = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(label,
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+            if (isRequired)
+              const Text(" *", style: TextStyle(color: AppColors.dangerRed)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: controller,
+          readOnly: true, // prevents keyboard, forces picker
+          onTap: () => _pickDate(controller),
+          style: const TextStyle(color: AppColors.textWhite),
+          decoration: _inputDeco("").copyWith(
+            hintText: "YYYY-MM-DD",
+            hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            suffixIcon: const Icon(Icons.calendar_today,
+                size: 18, color: AppColors.textMuted),
+          ),
+        ),
+      ],
+    );
+  }
   Widget _buildDocumentPicker(String title, File? document, String type) {
     return Container(
       padding: const EdgeInsets.all(16),

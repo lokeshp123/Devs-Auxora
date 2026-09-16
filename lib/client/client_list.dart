@@ -30,15 +30,9 @@ class _ClientListScreenState extends State<ClientListScreen> {
     setState(() => _isLoading = true);
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? savedCompanyId = prefs.getString('company_id');
-
-      if (savedCompanyId == null) {
-        setState(() {
-          _errorMessage = "Company ID not found in session. Please log in again.";
-          _isLoading = false;
-        });
-        return;
-      }
+      final bool isClient = prefs.getBool('isClient') ?? false;
+      final String companyId = prefs.getString('company_id') ?? '';
+      final String clientId = prefs.getString('clientId') ?? '';
 
       final response = await http.get(Uri.parse(_apiUrl));
       final data = json.decode(response.body);
@@ -46,10 +40,29 @@ class _ClientListScreenState extends State<ClientListScreen> {
       if (data['status'] == "success") {
         List<dynamic> allClients = data['data'] ?? [];
 
+        if (isClient) {
+          // ---------- CLIENT LOGIN ----------
+          // Match rows whose client_id equals the logged-in clientId.
+          if (clientId.isNotEmpty) {
+            allClients = allClients.where((client) {
+              return client['client_id']?.toString() == clientId;
+            }).toList();
+          } else {
+            allClients = [];
+          }
+        } else {
+          // ---------- ADMIN LOGIN ----------
+          if (companyId.isNotEmpty) {
+            allClients = allClients.where((client) {
+              return client['company_id']?.toString() == companyId;
+            }).toList();
+          } else {
+            allClients = [];
+          }
+        }
+
         setState(() {
-          _clients = allClients.where((client) {
-            return client['company_id']?.toString() == savedCompanyId;
-          }).toList();
+          _clients = allClients;
           _errorMessage = '';
         });
       } else {
@@ -61,7 +74,6 @@ class _ClientListScreenState extends State<ClientListScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-
   Future<void> _deleteClient(String id) async {
     Navigator.pop(context);
     setState(() => _isLoading = true);
@@ -608,6 +620,52 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
     return value.toLowerCase();
   }
 
+
+  Future<void> _pickDate(TextEditingController controller) async {
+    // Sanitize the existing value: reject empty, "0000-00-00", and anything
+    // unparseable or out of range. Fall back to today.
+    DateTime initial = DateTime.now();
+    final raw = controller.text.trim();
+    if (raw.isNotEmpty && raw != '0000-00-00') {
+      try {
+        final parsed = DateTime.parse(raw);
+        // Only accept dates within the picker's range
+        if (!parsed.isBefore(DateTime(2000)) && !parsed.isAfter(DateTime(2100))) {
+          initial = parsed;
+        }
+      } catch (_) {
+        // keep default
+      }
+    }
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppColors.accentCyan,
+              onPrimary: Colors.white,
+              surface: AppColors.surface,
+              onSurface: AppColors.textWhite,
+            ),
+            dialogBackgroundColor: AppColors.background,
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        controller.text =
+        "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+      });
+    }
+  }
   Future<void> _pickDocument(String type) async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -792,7 +850,7 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
           ]),
           const SizedBox(height: 20),
           _buildTextFieldRow([
-            _buildTextField("Client Since (YYYY-MM-DD)", clientSinceCtrl, isDate: true),
+            _buildDateField("Client Since", clientSinceCtrl),
             _buildDropdown("Client Type", clientType, [
               'Enterprise',
               'Startup',
@@ -875,12 +933,12 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
             _buildDropdown("Payment Terms", paymentTerms,
                 ['Net 15', 'Net 30', 'Net 45', 'Due on Receipt'],
                     (v) => setState(() => paymentTerms = v!)),
-            _buildTextField("Renewal Date", renewalDateCtrl, isDate: true),
+            _buildDateField("Renewal Date", renewalDateCtrl),
           ]),
           const SizedBox(height: 20),
           _buildTextFieldRow([
-            _buildTextField("Contract Start Date", startDateCtrl, isDate: true),
-            _buildTextField("Contract End Date", endDateCtrl, isDate: true),
+            _buildDateField("Contract Start Date", startDateCtrl),
+            _buildDateField("Contract End Date", endDateCtrl),
           ]),
           const SizedBox(height: 16),
           Container(
@@ -917,7 +975,36 @@ class _EditClientScreenState extends State<EditClientScreen> with SingleTickerPr
       ),
     );
   }
-
+  Widget _buildDateField(String label, TextEditingController controller,
+      {bool isRequired = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(label,
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+            if (isRequired)
+              const Text(" *", style: TextStyle(color: AppColors.dangerRed)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: controller,
+          readOnly: true,
+          onTap: () => _pickDate(controller),
+          style: const TextStyle(color: AppColors.textWhite),
+          decoration: _inputDeco("").copyWith(
+            hintText: "YYYY-MM-DD",
+            hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            suffixIcon: const Icon(Icons.calendar_today,
+                size: 18, color: AppColors.textMuted),
+          ),
+        ),
+      ],
+    );
+  }
   Widget _buildDocumentPicker(String title, File? document, String type, {String? existingFile}) {
     String displayName = '';
     if (document != null) {

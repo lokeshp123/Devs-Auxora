@@ -24,7 +24,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
   String? _existingInvoiceNumber;
 
-
   // Helper to safely clean and format dates coming from the API
   String _cleanDate(String? rawDate) {
     if (rawDate == null || rawDate.isEmpty || rawDate == 'null' || rawDate == '0000-00-00') {
@@ -88,6 +87,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   double _taxAmount = 0.0;
   double _discountAmount = 0.0;
   double _grandTotal = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -100,7 +100,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     } else {
       // Set default dates for a new invoice
       final now = DateTime.now();
-      // FIX: Use Dart's built-in Duration to safely add 30 days and handle month rollovers
       final dueDate = now.add(const Duration(days: 30));
 
       invoiceDateCtrl.text = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
@@ -403,10 +402,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       double subtotal = _timesheetTotal + _manualItemsTotal;
 
       final Map<String, dynamic> payload = {
-        'company_id': companyId,
+        // Use client's company ID ONLY if available; otherwise null to strip it securely
+        'company_id': companyId.isNotEmpty ? companyId : null,
+
+        // Admin user_id, or client user_id from session
         'created_by': userId ?? '1',
 
-        // --- CHANGED: Added client_id_owner here ---
+        // This correctly applies NULL for Admin and the exact clientId for the Client
         'client_id_owner': isClient ? clientIdSession : null,
 
         // Keeps the dropdown selection for the actual client being billed
@@ -479,6 +481,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       if (mounted) setState(() => _isSaving = false);
     }
   }
+
   void _showError(String text) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -490,7 +493,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   Future<void> _selectDateRange() async {
-    // Try to pre-load existing range if available
     DateTimeRange? initialRange = _selectedDateRange;
     if (initialRange == null && periodFromCtrl.text.isNotEmpty && periodToCtrl.text.isNotEmpty) {
       try {
@@ -509,13 +511,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       initialDateRange: initialRange,
       builder: (context, child) {
         return Theme(
-          // FIX: Use a clean light theme so text is visible on the white background
           data: ThemeData.light().copyWith(
             colorScheme: const ColorScheme.light(
-              primary: AppColors.accentCyan, // Header background color
-              onPrimary: Colors.white,       // Header text color
-              surface: Colors.white,         // Background color of the calendar
-              onSurface: Colors.black,       // Text color of the days (Fixes the invisible text)
+              primary: AppColors.accentCyan,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
             ),
             dialogBackgroundColor: Colors.white,
           ),
@@ -968,7 +969,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
         ),
         const SizedBox(height: 6),
-        // ValueListenableBuilder ensures the UI updates whenever the controller text changes
         ValueListenableBuilder<TextEditingValue>(
           valueListenable: controller,
           builder: (context, value, child) {
@@ -991,14 +991,13 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   firstDate: DateTime(2020),
                   lastDate: DateTime(2030),
                   builder: (context, child) {
-                    // ---> FIX: Using Light Theme here so the OK/Save button is visible! <---
                     return Theme(
                       data: ThemeData.light().copyWith(
                         colorScheme: const ColorScheme.light(
-                          primary: AppColors.accentCyan, // Header & Button color
-                          onPrimary: Colors.white,       // Header text color
-                          surface: Colors.white,         // Background color
-                          onSurface: Colors.black,       // Text color (fixes invisible text)
+                          primary: AppColors.accentCyan,
+                          onPrimary: Colors.white,
+                          surface: Colors.white,
+                          onSurface: Colors.black,
                         ),
                         dialogBackgroundColor: Colors.white,
                       ),
@@ -1007,7 +1006,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                   },
                 );
 
-                // ---> This is where the date is inserted into the form! <---
                 if (date != null) {
                   controller.text = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
                 }
@@ -1082,7 +1080,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     );
   }
 
-  // FIX APPLIED HERE: Added safety logic for Dropdown value
   Widget _buildProjectDropdown() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1121,7 +1118,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     );
   }
 
-  // FIX APPLIED HERE: Added safety logic for Dropdown value
   Widget _buildTimesheetProjectDropdown() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

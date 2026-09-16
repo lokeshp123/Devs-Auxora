@@ -81,7 +81,13 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     setState(() => _isLoading = true);
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
+
+      // Admin session data
       final String? savedCompanyId = prefs.getString('company_id');
+
+      // Client session data (using the exact keys from your login flow)
+      final bool isClientLogin = prefs.getBool('isClient') ?? false;
+      final String? loggedInClientId = isClientLogin ? prefs.getString('clientId') : null;
 
       final response = await http.get(Uri.parse(_apiUrl));
       final data = json.decode(response.body);
@@ -90,11 +96,23 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         List<dynamic> allInvoices = data['data'] ?? [];
 
         setState(() {
-          if (savedCompanyId != null && savedCompanyId.isNotEmpty) {
+          if (isClientLogin) {
+            // CLIENT LOGIN FILTERING
+            if (loggedInClientId != null) {
+              _invoices = allInvoices.where((invoice) {
+                return invoice['client_id_owner']?.toString() == loggedInClientId;
+              }).toList();
+            } else {
+              // Safety fallback: Show nothing if client ID is missing
+              _invoices = [];
+            }
+          } else if (savedCompanyId != null && savedCompanyId.isNotEmpty) {
+            // ADMIN LOGIN FILTERING (Unchanged logic)
             _invoices = allInvoices.where((invoice) {
               return invoice['company_id']?.toString() == savedCompanyId;
             }).toList();
           } else {
+            // Super admin / fallback
             _invoices = allInvoices;
           }
           _errorMessage = '';
@@ -294,6 +312,8 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           final status = (invoice['status'] ?? 'draft').toString().toLowerCase();
           final statusColor = _getStatusColor(status);
           final statusIcon = _getStatusIcon(status);
+          // Uses 'client_id' exactly as requested to resolve the Client's Company Name
+          // (while the filtering strictly used 'client_id_owner' above)
           final clientName = _getClientName(invoice['client_id']?.toString());
           final totalAmount = double.tryParse(invoice['total_amount']?.toString() ?? '0') ?? 0;
           final isOverdue = status == 'sent' &&

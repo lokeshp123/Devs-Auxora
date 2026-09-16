@@ -35,11 +35,39 @@ class _CICDPipelineScreenState extends State<CICDPipelineScreen> {
 
   Future<void> _fetchProjects() async {
     try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      final bool isClient = prefs.getBool('isClient') ?? false;
+
       final response = await http.get(Uri.parse(_projectsApiUrl));
       final data = json.decode(response.body);
+
       if (data['status'] == 'success') {
+        List<dynamic> allProjects = data['data'] ?? [];
+
+        if (isClient) {
+          // ---------- CLIENT LOGIN ----------
+          final String clientId = prefs.getString('clientId') ?? '';
+          if (clientId.isNotEmpty) {
+            allProjects = allProjects.where((p) {
+              return p['client_id']?.toString() == clientId;
+            }).toList();
+          } else {
+            allProjects = [];
+          }
+        } else {
+          // ---------- ADMIN LOGIN ----------
+          final String companyId = prefs.getString('company_id') ?? '';
+          if (companyId.isNotEmpty) {
+            allProjects = allProjects.where((p) {
+              return p['company_id']?.toString() == companyId;
+            }).toList();
+          } else {
+            allProjects = [];
+          }
+        }
+
         setState(() {
-          _projects = data['data'] ?? [];
+          _projects = allProjects;
         });
       }
     } catch (e) {
@@ -47,20 +75,11 @@ class _CICDPipelineScreenState extends State<CICDPipelineScreen> {
     }
   }
 
-  String _getProjectName(String? projectId) {
-    if (projectId == null) return 'N/A';
-    final project = _projects.firstWhere(
-          (p) => p['id'].toString() == projectId,
-      orElse: () => null,
-    );
-    return project != null ? project['project_name'] ?? 'Unknown' : 'Unknown';
-  }
-
   Future<void> _fetchDeployments() async {
     setState(() => _isLoading = true);
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? savedCompanyId = prefs.getString('company_id');
+      final bool isClient = prefs.getBool('isClient') ?? false;
 
       final response = await http.get(Uri.parse(_apiUrl));
       final data = json.decode(response.body);
@@ -68,14 +87,30 @@ class _CICDPipelineScreenState extends State<CICDPipelineScreen> {
       if (data['status'] == "success") {
         List<dynamic> allDeployments = data['data'] ?? [];
 
-        setState(() {
-          if (savedCompanyId != null && savedCompanyId.isNotEmpty) {
-            _deployments = allDeployments.where((deployment) {
-              return deployment['company_id']?.toString() == savedCompanyId;
+        if (isClient) {
+          // ---------- CLIENT LOGIN ----------
+          final String clientId = prefs.getString('clientId') ?? '';
+          if (clientId.isNotEmpty) {
+            allDeployments = allDeployments.where((deployment) {
+              return deployment['client_id']?.toString() == clientId;
             }).toList();
           } else {
-            _deployments = allDeployments;
+            allDeployments = [];
           }
+        } else {
+          // ---------- ADMIN LOGIN ----------
+          final String companyId = prefs.getString('company_id') ?? '';
+          if (companyId.isNotEmpty) {
+            allDeployments = allDeployments.where((deployment) {
+              return deployment['company_id']?.toString() == companyId;
+            }).toList();
+          } else {
+            allDeployments = [];
+          }
+        }
+
+        setState(() {
+          _deployments = allDeployments;
           _errorMessage = '';
           _calculateStatistics();
         });
@@ -88,6 +123,15 @@ class _CICDPipelineScreenState extends State<CICDPipelineScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+  String _getProjectName(String? projectId) {
+    if (projectId == null) return 'N/A';
+    final project = _projects.firstWhere(
+          (p) => p['id'].toString() == projectId,
+      orElse: () => null,
+    );
+    return project != null ? project['project_name'] ?? 'Unknown' : 'Unknown';
+  }
+
 
   void _calculateStatistics() {
     _totalDeployments = _deployments.length;

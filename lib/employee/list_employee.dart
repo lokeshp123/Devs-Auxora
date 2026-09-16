@@ -29,7 +29,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     setState(() => _isLoading = true);
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? savedCompanyId = prefs.getString('company_id');
+      final bool isClient = prefs.getBool('isClient') ?? false;
 
       final response = await http.get(Uri.parse(_apiUrl));
       final data = json.decode(response.body);
@@ -37,14 +37,30 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
       if (data['status'] == "success") {
         List<dynamic> allEmployees = data['data'] ?? [];
 
-        setState(() {
-          if (savedCompanyId != null && savedCompanyId.isNotEmpty) {
-            _employees = allEmployees.where((employee) {
-              return employee['company_id']?.toString() == savedCompanyId;
+        if (isClient) {
+          // ---------- CLIENT LOGIN ----------
+          final String clientId = prefs.getString('clientId') ?? '';
+          if (clientId.isNotEmpty) {
+            allEmployees = allEmployees.where((employee) {
+              return employee['client_id']?.toString() == clientId;
             }).toList();
           } else {
-            _employees = allEmployees;
+            allEmployees = [];
           }
+        } else {
+          // ---------- ADMIN LOGIN ----------
+          final String companyId = prefs.getString('company_id') ?? '';
+          if (companyId.isNotEmpty) {
+            allEmployees = allEmployees.where((employee) {
+              return employee['company_id']?.toString() == companyId;
+            }).toList();
+          } else {
+            allEmployees = [];
+          }
+        }
+
+        setState(() {
+          _employees = allEmployees;
           _errorMessage = '';
         });
       } else {
@@ -56,7 +72,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-
   Future<void> _deleteEmployee(String id) async {
     Navigator.pop(context);
     setState(() => _isLoading = true);

@@ -63,7 +63,7 @@ class _AddBugScreenState extends State<AddBugScreen> {
   Future<void> _fetchProjects() async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? savedCompanyId = prefs.getString('company_id');
+      final bool isClient = prefs.getBool('isClient') ?? false;
 
       final response = await http.get(Uri.parse(
           'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_projects'));
@@ -73,14 +73,30 @@ class _AddBugScreenState extends State<AddBugScreen> {
       if (data['status'] == 'success') {
         List<dynamic> allProjects = data['data'] ?? [];
 
-        setState(() {
-          if (savedCompanyId != null && savedCompanyId.isNotEmpty) {
-            _projects = allProjects.where((project) {
-              return project['company_id']?.toString() == savedCompanyId;
+        if (isClient) {
+          // ---------- CLIENT LOGIN ----------
+          final String clientId = prefs.getString('clientId') ?? '';
+          if (clientId.isNotEmpty) {
+            allProjects = allProjects.where((project) {
+              return project['client_id']?.toString() == clientId;
             }).toList();
           } else {
-            _projects = allProjects;
+            allProjects = [];
           }
+        } else {
+          // ---------- ADMIN LOGIN ----------
+          final String companyId = prefs.getString('company_id') ?? '';
+          if (companyId.isNotEmpty) {
+            allProjects = allProjects.where((project) {
+              return project['company_id']?.toString() == companyId;
+            }).toList();
+          } else {
+            allProjects = [];
+          }
+        }
+
+        setState(() {
+          _projects = allProjects;
           _isLoadingProjects = false;
         });
       } else {
@@ -90,11 +106,10 @@ class _AddBugScreenState extends State<AddBugScreen> {
       setState(() => _isLoadingProjects = false);
     }
   }
-
   Future<void> _fetchEmployees() async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? savedCompanyId = prefs.getString('company_id');
+      final bool isClient = prefs.getBool('isClient') ?? false;
 
       final response = await http.get(Uri.parse(
           'https://auxoradevs.auxorasystems.com/skydevs_API.php?table=skydevs_employees'));
@@ -104,14 +119,30 @@ class _AddBugScreenState extends State<AddBugScreen> {
       if (data['status'] == 'success') {
         List<dynamic> allEmployees = data['data'] ?? [];
 
-        setState(() {
-          if (savedCompanyId != null && savedCompanyId.isNotEmpty) {
-            _employees = allEmployees.where((emp) {
-              return emp['company_id']?.toString() == savedCompanyId;
+        if (isClient) {
+          // ---------- CLIENT LOGIN ----------
+          final String clientId = prefs.getString('clientId') ?? '';
+          if (clientId.isNotEmpty) {
+            allEmployees = allEmployees.where((emp) {
+              return emp['client_id']?.toString() == clientId;
             }).toList();
           } else {
-            _employees = allEmployees;
+            allEmployees = [];
           }
+        } else {
+          // ---------- ADMIN LOGIN ----------
+          final String companyId = prefs.getString('company_id') ?? '';
+          if (companyId.isNotEmpty) {
+            allEmployees = allEmployees.where((emp) {
+              return emp['company_id']?.toString() == companyId;
+            }).toList();
+          } else {
+            allEmployees = [];
+          }
+        }
+
+        setState(() {
+          _employees = allEmployees;
           _isLoadingEmployees = false;
         });
       } else {
@@ -121,7 +152,6 @@ class _AddBugScreenState extends State<AddBugScreen> {
       setState(() => _isLoadingEmployees = false);
     }
   }
-
   Future<void> _pickAttachments() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       allowMultiple: true,

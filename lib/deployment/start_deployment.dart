@@ -45,7 +45,9 @@ class _StartDeploymentScreenState extends State<StartDeploymentScreen> {
     setState(() => _isLoading = true);
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? savedCompanyId = prefs.getString('company_id');
+
+      // Determine login type
+      final bool isClient = prefs.getBool('isClient') ?? false;
 
       // Fetch projects and deployments concurrently
       final responses = await Future.wait([
@@ -60,15 +62,40 @@ class _StartDeploymentScreenState extends State<StartDeploymentScreen> {
         List<dynamic> allProjects = projectsData['data'] ?? [];
         List<dynamic> allDeployments = deploymentsData['data'] ?? [];
 
-        // Filter by company_id if present
-        if (savedCompanyId != null && savedCompanyId.isNotEmpty) {
-          allProjects = allProjects.where((p) {
-            return p['company_id']?.toString() == savedCompanyId;
-          }).toList();
+        if (isClient) {
+          // ---------- CLIENT LOGIN ----------
+          final String clientId = prefs.getString('clientId') ?? '';
 
-          allDeployments = allDeployments.where((d) {
-            return d['company_id']?.toString() == savedCompanyId;
-          }).toList();
+          if (clientId.isNotEmpty) {
+            allProjects = allProjects.where((p) {
+              return p['client_id']?.toString() == clientId;
+            }).toList();
+
+            allDeployments = allDeployments.where((d) {
+              return d['client_id']?.toString() == clientId;
+            }).toList();
+          } else {
+            // No clientId → show nothing
+            allProjects = [];
+            allDeployments = [];
+          }
+        } else {
+          // ---------- ADMIN LOGIN ----------
+          final String companyId = prefs.getString('company_id') ?? '';
+
+          if (companyId.isNotEmpty) {
+            allProjects = allProjects.where((p) {
+              return p['company_id']?.toString() == companyId;
+            }).toList();
+
+            allDeployments = allDeployments.where((d) {
+              return d['company_id']?.toString() == companyId;
+            }).toList();
+          } else {
+            // No company_id → show nothing
+            allProjects = [];
+            allDeployments = [];
+          }
         }
 
         setState(() {
@@ -86,7 +113,6 @@ class _StartDeploymentScreenState extends State<StartDeploymentScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-
   void _filterProjects() {
     final query = _searchController.text.toLowerCase().trim();
     if (query.isEmpty) {

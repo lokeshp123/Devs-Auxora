@@ -28,17 +28,94 @@ class _BugListScreenState extends State<BugListScreen> {
     _fetchBugs();
   }
 
+
   Future<void> _fetchProjects() async {
     try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      final bool isClient = prefs.getBool('isClient') ?? false;
+
       final response = await http.get(Uri.parse(_projectsApiUrl));
       final data = json.decode(response.body);
+
       if (data['status'] == 'success') {
+        List<dynamic> allProjects = data['data'] ?? [];
+
+        if (isClient) {
+          // ---------- CLIENT LOGIN ----------
+          final String clientId = prefs.getString('clientId') ?? '';
+          if (clientId.isNotEmpty) {
+            allProjects = allProjects.where((p) {
+              return p['client_id']?.toString() == clientId;
+            }).toList();
+          } else {
+            allProjects = [];
+          }
+        } else {
+          // ---------- ADMIN LOGIN ----------
+          final String companyId = prefs.getString('company_id') ?? '';
+          if (companyId.isNotEmpty) {
+            allProjects = allProjects.where((p) {
+              return p['company_id']?.toString() == companyId;
+            }).toList();
+          } else {
+            allProjects = [];
+          }
+        }
+
         setState(() {
-          _projects = data['data'] ?? [];
+          _projects = allProjects;
         });
       }
     } catch (e) {
       print("Error fetching projects: $e");
+    }
+  }
+
+  Future<void> _fetchBugs() async {
+    setState(() => _isLoading = true);
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      final bool isClient = prefs.getBool('isClient') ?? false;
+
+      final response = await http.get(Uri.parse(_apiUrl));
+      final data = json.decode(response.body);
+
+      if (data['status'] == "success") {
+        List<dynamic> allBugs = data['data'] ?? [];
+
+        if (isClient) {
+          // ---------- CLIENT LOGIN ----------
+          final String clientId = prefs.getString('clientId') ?? '';
+          if (clientId.isNotEmpty) {
+            allBugs = allBugs.where((bug) {
+              return bug['client_id']?.toString() == clientId;
+            }).toList();
+          } else {
+            allBugs = [];
+          }
+        } else {
+          // ---------- ADMIN LOGIN ----------
+          final String companyId = prefs.getString('company_id') ?? '';
+          if (companyId.isNotEmpty) {
+            allBugs = allBugs.where((bug) {
+              return bug['company_id']?.toString() == companyId;
+            }).toList();
+          } else {
+            allBugs = [];
+          }
+        }
+
+        setState(() {
+          _bugs = allBugs;
+          _errorMessage = '';
+        });
+      } else {
+        setState(() => _errorMessage = "Failed to load bugs.");
+      }
+    } catch (e) {
+      setState(() => _errorMessage = "Connection error: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -51,37 +128,6 @@ class _BugListScreenState extends State<BugListScreen> {
     return project != null ? project['project_name'] ?? 'Unknown' : 'Unknown';
   }
 
-  Future<void> _fetchBugs() async {
-    setState(() => _isLoading = true);
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? savedCompanyId = prefs.getString('company_id');
-
-      final response = await http.get(Uri.parse(_apiUrl));
-      final data = json.decode(response.body);
-
-      if (data['status'] == "success") {
-        List<dynamic> allBugs = data['data'] ?? [];
-
-        setState(() {
-          if (savedCompanyId != null && savedCompanyId.isNotEmpty) {
-            _bugs = allBugs.where((bug) {
-              return bug['company_id']?.toString() == savedCompanyId;
-            }).toList();
-          } else {
-            _bugs = allBugs;
-          }
-          _errorMessage = '';
-        });
-      } else {
-        setState(() => _errorMessage = "Failed to load bugs.");
-      }
-    } catch (e) {
-      setState(() => _errorMessage = "Connection error: $e");
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
 
   Future<void> _deleteBug(String id) async {
     Navigator.pop(context);
